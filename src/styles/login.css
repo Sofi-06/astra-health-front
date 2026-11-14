@@ -154,3 +154,6 @@ body:has(.login-page),
 @media (prefers-reduced-motion: reduce) {
   .system-status i { animation: none; }
 }
+
+.access-error { margin: 10px 0 0; color: #ffb4a8; font-size: .78rem; }
+.access-submit:disabled { opacity: .6; cursor: wait; }

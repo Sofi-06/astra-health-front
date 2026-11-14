@@ -10,17 +10,22 @@ import TasksPanel from '../components/dashboard/TasksPanel'
 import HumanVisualizer from '../components/dashboard/HumanVisualizer'
 import StatusPanel from '../components/dashboard/StatusPanel'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
+import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
-import { metrics } from '../data/dashboardData'
+import useHealthData from '../hooks/useHealthData'
+import { METRIC_LABELS } from '../data/format'
+
+const CARDS = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation']
 
 export default function DashboardPage({ onNotify }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [reviewed, setReviewed] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
+  const { latest, count, entries, history, sleep, error, reload } = useHealthData()
 
-  const reviewMetric = (id) => {
-    setReviewed((current) => current.includes(id) ? current : [...current, id])
-    onNotify('Indicador marcado como revisado.')
+  const saved = async () => {
+    await reload()
+    onNotify('Registro confirmado y guardado en SQLite.')
   }
 
   const renderPage = () => {
@@ -51,8 +56,24 @@ export default function DashboardPage({ onNotify }) {
       <div className="dashboard-content">
         <DashboardHeader page={activePage} onNotify={onNotify} />
         {renderPage()}
+        <DashboardHeader onNotify={onNotify} />
+        <div className="dashboard-grid">
+          <div className="dashboard-column dashboard-column--left">
+            <ProfileCard lastEntry={entries[0]} />
+            <div className="metrics-grid">
+              {CARDS.map((code) => <MetricCard key={code} label={METRIC_LABELS[code]} entry={latest[code]} />)}
+            </div>
+            <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
+          </div>
+          <HumanVisualizer latest={latest} />
+          <div className="dashboard-column dashboard-column--right">
+            <StatusPanel latest={latest} count={count} error={error} />
+            <TrendsPanel history={history} />
+            <SleepAnalysisPanel analysis={sleep} onReload={reload} onNotify={onNotify} />
+          </div>
+        </div>
       </div>
-      <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={() => onNotify('Signos vitales guardados y sincronizados.')} />
+      <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} />
     </main>
   )
 }
