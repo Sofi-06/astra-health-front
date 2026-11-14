@@ -132,7 +132,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
 
       {/* Contenido principal del dashboard */}
       <div className="dashboard-viewport">
-        {/* Barra superior con indicador de Sistema Operativo, onda ECG y botón de Logout */}
+        {/* Barra superior con onda ECG y botón de cierre de sesión */}
         <header className="dashboard-top-bar">
           <div className="dashboard-top-bar__status">
             <svg className="ecg-pulse-svg" viewBox="0 0 50 18" fill="none" aria-hidden="true">
