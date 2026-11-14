@@ -75,6 +75,7 @@
   inset: 0;
   filter: drop-shadow(0 0 18px rgba(0, 165, 255, .68));
   cursor: grab;
+  touch-action: none;
 }
 
 .body-model-stage canvas:active { cursor: grabbing; }

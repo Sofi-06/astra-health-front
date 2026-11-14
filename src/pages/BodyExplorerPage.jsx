@@ -16,8 +16,95 @@ const systems = [
   { name: 'Inmunológico', icon: Plus, status: 'Preventivo', description: 'El estrés espacial puede modificar la respuesta inmunológica.', records: ['Temperatura', 'Marcadores inmunes'], action: 'Control médico periódico' },
 ]
 
-function ExplorerModel() {
+const bodyHitZones = [
+  { id: 'brain', system: 'Cerebro', color: '#b98cff', shape: 'sphere', position: [0, 5.55, 0.3], markerPosition: [0, 6.02, 0.68], scale: [0.48, 0.58, 0.48] },
+  { id: 'immune', system: 'Inmunológico', color: '#68f5a7', shape: 'sphere', position: [0, 4.92, 0.45], markerPosition: [0, 5.02, 0.72], scale: [0.28, 0.3, 0.28] },
+  { id: 'lungs', system: 'Pulmones', color: '#56a8ff', shape: 'box', position: [0.12, 4.42, 0.35], markerPosition: [0.38, 4.43, 0.74], scale: [0.92, 0.58, 0.5] },
+  { id: 'heart', system: 'Corazón', color: '#ff718b', shape: 'sphere', position: [-0.24, 4.34, 0.82], markerPosition: [-0.25, 4.58, 0.9], scale: [0.3, 0.34, 0.28] },
+  { id: 'digestive', system: 'Digestivo', color: '#ffb45e', shape: 'box', position: [0, 3.62, 0.42], markerPosition: [0, 3.7, 0.7], scale: [0.82, 0.78, 0.5] },
+  { id: 'muscle-arm-left', system: 'Músculos', color: '#48e5ed', shape: 'box', position: [-0.88, 4.18, 0.18], rotation: [0, 0, -0.82], scale: [0.34, 1.25, 0.34] },
+  { id: 'muscle-arm-right', system: 'Músculos', color: '#48e5ed', shape: 'box', position: [0.84, 3.72, 0.12], markerPosition: [0.82, 4.14, 0.58], rotation: [0, 0, -0.08], scale: [0.34, 1.45, 0.34] },
+  { id: 'bone-leg-left', system: 'Huesos', color: '#f6dc68', shape: 'box', position: [-0.34, 1.55, 0.02], rotation: [0, 0, -0.04], scale: [0.38, 2.25, 0.42] },
+  { id: 'bone-leg-right', system: 'Huesos', color: '#f6dc68', shape: 'box', position: [0.34, 1.55, 0.02], markerPosition: [0.34, 1.55, 0.38], rotation: [0, 0, 0.04], scale: [0.38, 2.25, 0.42] },
+]
+
+function TouchBeacon({ active, color, hovered, position, phase }) {
+  const pulse = useRef()
+
+  useFrame(({ clock }) => {
+    if (!pulse.current) return
+    const wave = (Math.sin(clock.elapsedTime * 2.25 + phase) + 1) / 2
+    const emphasis = active ? 0.22 : hovered ? 0.16 : 0.1
+    pulse.current.scale.setScalar(1 + wave * emphasis)
+  })
+
+  return (
+    <group ref={pulse} position={position} renderOrder={30}>
+      <mesh raycast={() => null}>
+        <sphereGeometry args={[active ? 0.078 : 0.068, 18, 14]} />
+        <meshBasicMaterial
+          color={hovered ? '#ffffff' : color}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh raycast={() => null} scale={active ? 1.65 : hovered ? 1.55 : 1.42}>
+        <sphereGeometry args={[0.1, 18, 14]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={active ? 0.28 : hovered ? 0.23 : 0.16}
+          blending={THREE.AdditiveBlending}
+          depthTest={false}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+function BodyHitZone({ zone, phase, showBeacon, selected, hovered, onPointerDown, onPointerUp, onPointerOver, onPointerOut }) {
+  const active = selected === zone.system
+  const isHovered = hovered === zone.system
+
+  return (
+    <>
+      <mesh
+        position={zone.position}
+        rotation={zone.rotation || [0, 0, 0]}
+        scale={zone.scale}
+        userData={{ bodySystem: zone.system }}
+        onPointerDown={(event) => onPointerDown(event, zone.system)}
+        onPointerUp={(event) => onPointerUp(event, zone.system)}
+        onPointerCancel={(event) => onPointerOut(event, zone.system)}
+        onPointerOver={(event) => onPointerOver(event, zone.system)}
+        onPointerOut={(event) => onPointerOut(event, zone.system)}
+      >
+        {zone.shape === 'sphere'
+          ? <sphereGeometry args={[1, 22, 16]} />
+          : <boxGeometry args={[1, 1, 1]} />}
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          colorWrite={false}
+          depthTest={false}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {showBeacon && (
+        <TouchBeacon active={active} color={zone.color} hovered={isHovered} position={zone.markerPosition} phase={phase} />
+      )}
+    </>
+  )
+}
+
+function ExplorerModel({ selected, onSelect }) {
   const group = useRef()
+  const gestures = useRef(new Map())
+  const [hovered, setHovered] = useState(null)
   const { scene } = useGLTF('/assets/holograming_man.glb')
   const model = useMemo(() => cloneSkeleton(scene), [scene])
 
@@ -45,22 +132,82 @@ function ExplorerModel() {
     if (group.current) group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.22) * 0.045
   })
 
-  // Escala y posición ajustadas para que la cabeza completa sea 100% visible sin recorte
-  return <primitive ref={group} object={model} scale={0.96} position={[0.08, -0.42, 0]} />
+  const pointerPosition = (event) => event.nativeEvent || event
+
+  const handlePointerDown = (event, system) => {
+    const pointer = pointerPosition(event)
+    const multiTouch = gestures.current.size > 0
+    if (multiTouch) {
+      gestures.current.forEach((current) => { current.multiTouch = true })
+    }
+    gestures.current.set(pointer.pointerId, {
+      system,
+      x: pointer.clientX,
+      y: pointer.clientY,
+      multiTouch,
+    })
+  }
+
+  const handlePointerUp = (event, system) => {
+    const pointer = pointerPosition(event)
+    const start = gestures.current.get(pointer.pointerId)
+    gestures.current.delete(pointer.pointerId)
+    if (!start || start.multiTouch || start.system !== system) return
+    const moved = Math.hypot(pointer.clientX - start.x, pointer.clientY - start.y)
+    if (moved > 8) return
+    event.stopPropagation()
+    onSelect(system)
+  }
+
+  const handlePointerOver = (event, system) => {
+    event.stopPropagation()
+    setHovered(system)
+    const canvas = event.nativeEvent?.target
+    if (canvas?.style) canvas.style.cursor = 'pointer'
+  }
+
+  const handlePointerOut = (event, system) => {
+    const pointer = pointerPosition(event)
+    gestures.current.delete(pointer.pointerId)
+    setHovered((current) => current === system ? null : current)
+    const canvas = event?.nativeEvent?.target
+    if (canvas?.style) canvas.style.cursor = 'grab'
+  }
+
+  // El modelo es una sola escena: las zonas invisibles viven en este mismo grupo,
+  // por lo que mantienen su posición al rotar o acercar la cámara.
+  return (
+    <group ref={group} scale={0.96} position={[0.08, -0.42, 0]}>
+      <primitive object={model} />
+      {bodyHitZones.map((zone, index) => (
+        <BodyHitZone
+          key={zone.id}
+          zone={zone}
+          phase={index * 0.57}
+          showBeacon={Boolean(zone.markerPosition)}
+          selected={selected}
+          hovered={hovered}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+        />
+      ))}
+    </group>
+  )
 }
 
-function BodyModel() {
+function BodyModel({ selected, onSelect }) {
   return (
-    <div className="body-model-stage">
+    <div className="body-model-stage" aria-label={`Modelo corporal interactivo. Zona seleccionada: ${selected}`}>
       <div className="body-orbit body-orbit--one" /><div className="body-orbit body-orbit--two" />
-      <div className="body-heart-pulse">♥</div>
       <div className="body-platform"><i /><i /><i /></div>
       <Suspense fallback={<div className="body-model-loading">Sincronizando modelo…</div>}>
-        <Canvas camera={{ position: [0, 2.35, 14.2], fov: 32 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
+        <Canvas key="body-explorer-fixed-camera" camera={{ position: [0, 2.35, 14.2], fov: 32 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
           <ambientLight intensity={0.5} color="#43dcff" />
           <pointLight position={[2, 3, 4]} intensity={8} color="#00bfff" distance={10} />
           <pointLight position={[-2, 0, 3]} intensity={6} color="#70f5ff" distance={9} />
-          <ExplorerModel />
+          <ExplorerModel selected={selected} onSelect={onSelect} />
           <OrbitControls target={[0, 2.35, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
@@ -102,7 +249,7 @@ export default function BodyExplorerPage({ onNotify }) {
           <nav>{systems.map(({ name, icon: Icon }) => <button key={name} className={selected === name ? 'is-active' : ''} onClick={() => chooseSystem(name)}><Icon size={20} strokeWidth={1.45} /><span>{name}</span></button>)}</nav>
         </Panel>
 
-        <BodyModel />
+        <BodyModel selected={selected} onSelect={chooseSystem} />
 
         <Panel className="body-detail-card">
           <span className="body-kicker">DETALLE</span>
