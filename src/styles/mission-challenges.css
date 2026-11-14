@@ -357,3 +357,105 @@
   }
 }
 
+@media (max-width: 768px) {
+  .challenges-page-pro {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .challenges-hero-card {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr) 82px;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .hero-astronaut-avatar-wrap {
+    width: 76px;
+    height: 76px;
+    border-radius: 15px;
+  }
+
+  .hero-level-info {
+    width: 100%;
+  }
+
+  .hero-level-info h2 {
+    font-size: 1.4rem;
+    overflow-wrap: anywhere;
+  }
+
+  .hero-desc {
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .hero-xp-meta {
+    gap: 4px 10px;
+    flex-wrap: wrap;
+  }
+
+  .hero-xp-ring-wrap {
+    width: 82px;
+    height: 82px;
+    align-self: center;
+  }
+
+  .hero-ring-inner strong {
+    font-size: 1.3rem;
+  }
+
+  .challenges-weekly-card,
+  .challenges-badges-collection-card {
+    min-width: 0;
+    padding: 16px;
+  }
+
+  .badges-hex-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .next-badge-footer-bar {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .register-sleep-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .challenges-hero-card {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .hero-astronaut-avatar-wrap {
+    width: 68px;
+    height: 68px;
+  }
+
+  .hero-xp-ring-wrap {
+    grid-column: 1 / -1;
+    width: 88px;
+    height: 88px;
+    margin-top: 2px;
+    justify-self: center;
+  }
+
+  .weekly-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .badges-hex-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+

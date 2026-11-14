@@ -237,3 +237,128 @@
   .body-knowledge-card { height: auto; grid-template-columns: repeat(3, 1fr); }
   .body-knowledge-intro { grid-column: 1 / -1; }
 }
+
+@media (max-width: 768px) {
+  .body-explorer {
+    width: 100%;
+    min-width: 0;
+    gap: 14px;
+    padding-bottom: 14px;
+    overflow: hidden;
+  }
+
+  .body-main-grid {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    gap: 12px;
+  }
+
+  .body-systems-card,
+  .body-detail-card {
+    width: 100%;
+    padding: 15px;
+  }
+
+  .body-systems-card nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    margin-top: 11px;
+  }
+
+  .body-systems-card nav button {
+    min-width: 0;
+    min-height: 43px;
+    gap: 8px;
+    padding: 0 9px;
+    font-size: .72rem;
+  }
+
+  .body-systems-card nav button svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+  }
+
+  .body-model-stage {
+    width: 100%;
+    min-width: 0;
+    min-height: 540px;
+    overflow: hidden;
+  }
+
+  .body-model-stage::before {
+    width: 96%;
+  }
+
+  .body-orbit--one { width: 88%; height: 55%; }
+  .body-orbit--two { width: 68%; height: 42%; }
+
+  .body-platform {
+    width: min(230px, 72vw);
+    height: 62px;
+  }
+
+  .body-callout {
+    min-width: 94px;
+    padding: 7px 9px;
+    border-radius: 11px;
+  }
+
+  .body-callout::before {
+    width: 34px;
+  }
+
+  .body-callout--mood,
+  .body-callout--oxygen {
+    left: 5px;
+  }
+
+  .body-callout--heart,
+  .body-callout--activity {
+    right: 5px;
+  }
+
+  .body-callout--mood { top: 24px; }
+  .body-callout--heart { top: 118px; }
+  .body-callout--oxygen { top: 205px; }
+  .body-callout--activity { top: 330px; }
+
+  .body-callout--mood::after,
+  .body-callout--oxygen::after { left: calc(100% + 31px); }
+  .body-callout--heart::after,
+  .body-callout--activity::after { right: calc(100% + 31px); }
+
+  .body-callout small { font-size: .52rem; }
+  .body-callout strong { font-size: .9rem; }
+
+  .body-detail-card h2 {
+    font-size: 1.35rem;
+  }
+
+  .body-knowledge-card {
+    height: auto;
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 15px;
+  }
+
+  .body-knowledge-intro {
+    grid-column: auto;
+  }
+
+  .body-knowledge-card > button {
+    height: 82px;
+  }
+}
+
+@media (max-width: 420px) {
+  .body-systems-card nav button {
+    font-size: .67rem;
+  }
+
+  .body-model-stage {
+    min-height: 500px;
+  }
+}

@@ -135,10 +135,6 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
         {/* Barra superior con indicador de Sistema Operativo, onda ECG y botón de Logout */}
         <header className="dashboard-top-bar">
           <div className="dashboard-top-bar__status">
-            <div className="system-pill">
-              <span className="system-pill-dot" />
-              <span>Sistema Operativo</span>
-            </div>
             <svg className="ecg-pulse-svg" viewBox="0 0 50 18" fill="none" aria-hidden="true">
               <path
                 d="M 0 9 H 14 L 18 2 L 23 16 L 27 6 L 30 11 L 33 9 H 50"

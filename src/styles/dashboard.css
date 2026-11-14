@@ -391,35 +391,6 @@
   gap: 12px;
 }
 
-.system-pill {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 14px;
-  border: 1px solid rgba(49, 220, 255, 0.24);
-  border-radius: 20px;
-  background: rgba(6, 26, 56, 0.75);
-  backdrop-filter: blur(10px);
-  color: #e2f4ff;
-  font-size: 0.72rem;
-  font-weight: 500;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-}
-
-.system-pill-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #39e58c;
-  box-shadow: 0 0 8px #39e58c, 0 0 14px rgba(57, 229, 140, 0.6);
-  animation: pulseDot 2s infinite ease-in-out;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.18); }
-}
-
 .ecg-pulse-svg {
   width: 48px;
   height: 18px;

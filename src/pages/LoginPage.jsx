@@ -58,7 +58,6 @@ export default function LoginPage({ onLogin }) {
           <img src="/assets/logo3.png" alt="" />
           <div><strong>ASTRA</strong><span>HEALTH</span></div>
         </div>
-        <div className="system-status"><i /> SISTEMA OPERATIVO</div>
       </header>
 
       <section className="login-copy" aria-labelledby="login-heading">
