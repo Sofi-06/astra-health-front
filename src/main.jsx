@@ -5,6 +5,9 @@ import './styles/tokens.css'
 import './styles/global.css'
 import './styles/login.css'
 import './styles/dashboard.css'
+import './styles/health-monitor.css'
+import './styles/mind-tracker.css'
+import './styles/body-explorer.css'
 import './styles/responsive.css'
 
 createRoot(document.getElementById('root')).render(
