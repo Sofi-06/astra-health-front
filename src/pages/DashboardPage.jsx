@@ -7,6 +7,7 @@ import TasksPanel from '../components/dashboard/TasksPanel'
 import HumanVisualizer from '../components/dashboard/HumanVisualizer'
 import StatusPanel from '../components/dashboard/StatusPanel'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
+import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
 import useHealthData from '../hooks/useHealthData'
 import { METRIC_LABELS } from '../data/format'
@@ -15,7 +16,7 @@ const CARDS = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation']
 
 export default function DashboardPage({ onNotify }) {
   const [modalOpen, setModalOpen] = useState(false)
-  const { latest, count, entries, history, error, reload } = useHealthData()
+  const { latest, count, entries, history, sleep, error, reload } = useHealthData()
 
   const saved = async () => {
     await reload()
@@ -40,6 +41,7 @@ export default function DashboardPage({ onNotify }) {
           <div className="dashboard-column dashboard-column--right">
             <StatusPanel latest={latest} count={count} error={error} />
             <TrendsPanel history={history} />
+            <SleepAnalysisPanel analysis={sleep} onReload={reload} onNotify={onNotify} />
           </div>
         </div>
       </div>

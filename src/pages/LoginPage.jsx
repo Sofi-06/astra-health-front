@@ -59,7 +59,7 @@ export default function LoginPage({ onLogin }) {
         <div className="access-card__edge access-card__edge--bottom" />
         <div className="access-card__title"><span />CENTRO DE ACCESO<span /></div>
         <h2>Bienvenido, astronauta</h2>
-        <p>Prototipo sin cuentas: ingresar abre una sesión local de 24 h con datos ficticios.</p>
+        <p>Prototipo sin cuentas: ingresar abre una sesión local con datos ficticios.</p>
 
         <label className="access-input">
           <Mail size={24} />

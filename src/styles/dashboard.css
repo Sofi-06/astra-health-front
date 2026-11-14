@@ -187,3 +187,10 @@
 .modal-field span { display: block; margin-bottom: 5px; color: #88afc5; font-size: .67rem; }
 .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
 .modal-actions button { flex: 1; }
+
+.sleep-analysis { padding: 20px; }
+.sleep-analysis__message { margin: 12px 0; color: #b5cfde; font-size: .74rem; line-height: 1.5; }
+.sleep-analysis .secondary-button { width: 100%; margin-top: 12px; font-size: .68rem; }
+.sleep-analysis__more { margin-top: 10px; color: #8bb0c6; font-size: .68rem; }
+.sleep-analysis__more summary { cursor: pointer; }
+.sleep-analysis__more p, .sleep-analysis__more li { line-height: 1.45; }

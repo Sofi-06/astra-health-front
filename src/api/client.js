@@ -49,6 +49,9 @@ export const closeSession = async () => {
 export const hasSession = () => Boolean(token)
 export const listEntries = () => request('entries?limit=500')
 export const getHistory = (metric, days = 30) => request(`history?metric=${metric}&days=${days}`)
+export const getSleepAnalysis = (days = 7) =>
+  request(`analysis/sleep?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
+export const loadSyntheticSleep = () => request('synthetic/sleep', { method: 'POST' })
 export const sendMessage = (text) => request('messages', { method: 'POST', body: { text } })
 export const confirmPending = (payload) => request('confirmations', { method: 'POST', body: { confirmed: true, ...payload } })
 export const discardPending = () => request('pending', { method: 'DELETE' })
