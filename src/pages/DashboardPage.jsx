@@ -15,13 +15,17 @@ import VitalsModal from '../components/modals/VitalsModal'
 import useHealthData from '../hooks/useHealthData'
 import { METRIC_LABELS } from '../data/format'
 
-const CARDS = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation']
+const CARD_ORDER = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation', 'temperature', 'glucose']
 
 export default function DashboardPage({ onNotify }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [reviewed, setReviewed] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const { latest, count, entries, history, sleep, error, reload } = useHealthData()
+  const recordedFirst = Object.entries(latest)
+    .sort(([, first], [, second]) => second.measured_at.localeCompare(first.measured_at))
+    .map(([code]) => code)
+  const cards = [...new Set([...recordedFirst, ...CARD_ORDER])].slice(0, 4)
 
   const saved = async () => {
     await reload()
@@ -61,7 +65,7 @@ export default function DashboardPage({ onNotify }) {
           <div className="dashboard-column dashboard-column--left">
             <ProfileCard lastEntry={entries[0]} />
             <div className="metrics-grid">
-              {CARDS.map((code) => <MetricCard key={code} label={METRIC_LABELS[code]} entry={latest[code]} />)}
+              {cards.map((code) => <MetricCard key={code} code={code} label={METRIC_LABELS[code]} entry={latest[code]} />)}
             </div>
             <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
           </div>

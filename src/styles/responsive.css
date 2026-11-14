@@ -3,7 +3,7 @@
   .sidebar { top: 16px; bottom: 16px; left: 16px; width: 222px; }
   .dashboard-content { width: calc(100vw - 272px); margin-left: 240px; }
   .dashboard-grid { grid-template-columns: minmax(330px, 380px) minmax(380px, 1fr) 286px; gap: 12px; }
-  .bio-label { width: 116px; }
+  .body-metric-card { width: 116px; }
   .dashboard-header__actions .icon-button { display: none; }
 }
 
@@ -57,16 +57,22 @@
   .metric-card { min-height: 133px; padding: 15px 12px; }
   .metric-card__value { font-size: 1.32rem; }
   .radial-indicator { width: 42px; height: 42px; right: 8px; }
+  .radial-indicator::before { inset: 5px; }
+  .radial-indicator svg { width: 16px; height: 16px; }
   .human-visualizer { min-height: 620px; margin: 0 -12px; overflow: hidden; }
-  .bio-label { width: 105px; padding: 9px 10px; }
-  .bio-label::before { width: 42px; }
-  .bio-label::after { right: calc(100% + 39px); }
-  .bio-label--sleep { top: 8%; right: 3%; }
-  .bio-label--heart { top: 25%; right: 0; }
-  .bio-label--activity { top: 57%; right: 3%; }
+  .body-metric-card { width: 105px; padding: 8px 9px; }
+  .body-metric-card span { font-size: .51rem; }
+  .body-metric-card strong { font-size: .88rem; }
   .status-panel, .trends-panel { min-height: initial; }
   .trends-panel { display: block; }
-  .vitals-grid { grid-template-columns: 1fr; }
+  .modal-backdrop { padding: 10px; }
+  .vitals-modal { max-height: calc(100vh - 20px); padding: 24px 18px; border-radius: 17px; }
+  .modal-close { top: 12px; right: 12px; }
+  .indicator-options { grid-template-columns: 1fr; gap: 8px; }
+  .indicator-options button { min-height: 58px; }
+  .measurement-entry { min-height: 104px; padding: 15px 10px; }
+  .measurement-value input { font-size: 2.1rem; }
+  .measurement-field input { width: 72px; font-size: 1.55rem; }
 }
 
 @media (max-width: 410px) {
@@ -75,8 +81,6 @@
   .profile-card p { font-size: .64rem; }
   .tasks-panel__actions { flex-direction: column; }
   .human-visualizer { min-height: 560px; }
-  .bio-label--sleep { top: 6%; }
-  .bio-label--heart { top: 24%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
