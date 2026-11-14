@@ -1,0 +1,84 @@
+@media (max-width: 1400px) {
+  .app-shell { padding: 16px; }
+  .sidebar { top: 16px; bottom: 16px; left: 16px; width: 222px; }
+  .dashboard-content { width: calc(100vw - 272px); margin-left: 240px; }
+  .dashboard-grid { grid-template-columns: minmax(330px, 380px) minmax(380px, 1fr) 286px; gap: 12px; }
+  .bio-label { width: 116px; }
+  .dashboard-header__actions .icon-button { display: none; }
+}
+
+@media (max-width: 1220px) {
+  .app-shell { overflow: visible; }
+  .dashboard-grid { grid-template-columns: minmax(320px, .85fr) minmax(360px, 1.15fr); }
+  .dashboard-column--right { grid-column: 1 / -1; display: grid; grid-template-columns: .8fr 1.2fr; }
+  .status-panel, .trends-panel { min-height: 360px; }
+  .trends-panel { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 18px; }
+  .trends-panel > .section-title { grid-column: 1 / -1; }
+  .human-visualizer { min-height: 700px; }
+}
+
+@media (max-width: 900px) {
+  .app-shell { padding: 15px; background-attachment: scroll; }
+  .dashboard-content { width: 100%; margin-left: 0; }
+  .mobile-menu { position: fixed; z-index: 30; top: 16px; left: 16px; display: grid; place-items: center; width: 42px; height: 42px; border: 1px solid rgba(69, 199, 241, .45); border-radius: 12px; background: rgba(5, 31, 64, .9); box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
+  .sidebar { z-index: 50; top: 0; bottom: 0; left: 0; width: min(290px, 84vw); border-radius: 0 20px 20px 0; transform: translateX(-105%); transition: transform 220ms ease; }
+  .sidebar.is-open { transform: translateX(0); }
+  .sidebar__close { position: absolute; top: 14px; right: 13px; display: grid; place-items: center; width: 34px; height: 34px; border: 0; background: transparent; cursor: pointer; }
+  .sidebar-backdrop { position: fixed; z-index: 40; inset: 0; display: block; border: 0; background: rgba(0, 5, 18, .68); opacity: 0; visibility: hidden; transition: 200ms; }
+  .sidebar-backdrop.is-visible { opacity: 1; visibility: visible; }
+  .dashboard-header { padding-left: 54px; }
+  .dashboard-header__actions .prototype-pill, .dashboard-header__actions .user-pill { display: none; }
+  .dashboard-grid { grid-template-columns: minmax(300px, .85fr) minmax(340px, 1.15fr); }
+}
+
+@media (max-width: 820px) {
+  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-column--left { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .profile-card, .metrics-grid { grid-column: auto; }
+  .metrics-grid { align-self: stretch; }
+  .metric-card { min-height: 140px; }
+  .tasks-panel { grid-column: 1 / -1; }
+  .human-visualizer { min-height: 720px; }
+  .dashboard-column--right { grid-column: auto; }
+}
+
+@media (max-width: 620px) {
+  .app-shell { padding: 12px; }
+  .dashboard-header { min-height: 78px; padding: 4px 0 12px 49px; }
+  .dashboard-header h1 { font-size: 1.45rem; }
+  .dashboard-header p { line-height: 1.5; }
+  .dashboard-header__actions { display: none; }
+  .mobile-menu { top: 12px; left: 12px; }
+  .dashboard-column--left, .dashboard-column--right { display: flex; align-items: stretch; }
+  .profile-card, .metrics-grid, .tasks-panel { width: 100%; min-width: 0; }
+  .profile-card { min-height: 136px; padding: 15px; }
+  .avatar--large { width: 68px; height: 68px; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .metric-card { min-height: 133px; padding: 15px 12px; }
+  .metric-card__value { font-size: 1.32rem; }
+  .radial-indicator { width: 42px; height: 42px; right: 8px; }
+  .human-visualizer { min-height: 620px; margin: 0 -12px; overflow: hidden; }
+  .bio-label { width: 105px; padding: 9px 10px; }
+  .bio-label::before { width: 42px; }
+  .bio-label::after { right: calc(100% + 39px); }
+  .bio-label--sleep { top: 8%; right: 3%; }
+  .bio-label--heart { top: 25%; right: 0; }
+  .bio-label--activity { top: 57%; right: 3%; }
+  .status-panel, .trends-panel { min-height: initial; }
+  .trends-panel { display: block; }
+  .vitals-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 410px) {
+  .metrics-grid { grid-template-columns: 1fr; }
+  .metric-card { min-height: 120px; }
+  .profile-card p { font-size: .64rem; }
+  .tasks-panel__actions { flex-direction: column; }
+  .human-visualizer { min-height: 560px; }
+  .bio-label--sleep { top: 6%; }
+  .bio-label--heart { top: 24%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
