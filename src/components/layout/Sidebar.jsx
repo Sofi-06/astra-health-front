@@ -5,47 +5,35 @@ import { navItems } from '../../data/dashboardData'
 function Brand() {
   return (
     <div className="brand">
-      <div className="brand__mark" aria-hidden="true">
-        <img src="/assets/logo3.png" alt="" />
-      </div>
-      <div>
-        <strong>ASTRA</strong>
-        <small>HEALTH SYSTEM</small>
-      </div>
+      <div className="brand__mark" aria-hidden="true"><span>✦</span></div>
+      <div><strong>ASTRA</strong><small>HEALTH SYSTEM</small></div>
     </div>
   )
 }
 
-export default function Sidebar({ onNotify }) {
+export default function Sidebar({ activeItem = 'Dashboard', onSelect, onNotify }) {
   const [open, setOpen] = useState(false)
 
   const selectItem = (label) => {
     setOpen(false)
-    if (label !== 'Dashboard') onNotify(`${label} estará disponible en la próxima misión.`)
+    if (['Dashboard', 'Health Monitor', 'Mind Tracker', 'Body Explorer'].includes(label)) {
+      onSelect?.(label)
+      return
+    }
+    onNotify(`${label} estará disponible en la próxima misión.`)
   }
 
   return (
     <>
-      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir navegación">
-        <Menu size={21} />
-      </button>
-      <button
-        className={`sidebar-backdrop ${open ? 'is-visible' : ''}`}
-        onClick={() => setOpen(false)}
-        aria-label="Cerrar navegación"
-      />
+      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir navegación"><Menu size={21} /></button>
+      <button className={`sidebar-backdrop ${open ? 'is-visible' : ''}`} onClick={() => setOpen(false)} aria-label="Cerrar navegación" />
       <aside className={`sidebar glass-panel ${open ? 'is-open' : ''}`}>
         <button className="sidebar__close" onClick={() => setOpen(false)} aria-label="Cerrar navegación"><X /></button>
         <Brand />
         <nav className="sidebar__nav" aria-label="Navegación principal">
-          {navItems.map(({ label, icon: Icon }, index) => (
-            <button
-              key={label}
-              className={`nav-item ${index === 0 ? 'nav-item--active' : ''}`}
-              onClick={() => selectItem(label)}
-            >
-              <Icon size={15} strokeWidth={1.5} />
-              <span>{label}</span>
+          {navItems.map(({ label, icon: Icon }) => (
+            <button key={label} className={`nav-item ${activeItem === label ? 'nav-item--active' : ''}`} onClick={() => selectItem(label)}>
+              <Icon size={15} strokeWidth={1.5} /><span>{label}</span>
             </button>
           ))}
         </nav>
