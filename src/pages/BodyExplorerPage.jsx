@@ -30,22 +30,23 @@ function ExplorerModel() {
       }
       const hologramMaterial = node.material.clone()
       hologramMaterial.transparent = true
-      hologramMaterial.opacity = .76
+      hologramMaterial.opacity = 0.8
       hologramMaterial.depthWrite = true
       hologramMaterial.side = THREE.FrontSide
       node.material = hologramMaterial
     })
     const raisedUpperArm = model.getObjectByName('upper_arm.R_030')
     const raisedForearm = model.getObjectByName('forearm.R_031')
-    if (raisedUpperArm) raisedUpperArm.quaternion.set(-.4075, -.6086, .3288, .5962)
-    if (raisedForearm) raisedForearm.quaternion.set(.2275, -.1996, .1682, .9381)
+    if (raisedUpperArm) raisedUpperArm.quaternion.set(-0.4075, -0.6086, 0.3288, 0.5962)
+    if (raisedForearm) raisedForearm.quaternion.set(0.2275, -0.1996, 0.1682, 0.9381)
   }, [model])
 
   useFrame((state) => {
-    if (group.current) group.current.rotation.y = Math.sin(state.clock.elapsedTime * .22) * .045
+    if (group.current) group.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.22) * 0.045
   })
 
-  return <primitive ref={group} object={model} scale={1.18} position={[.08, .12, 0]} />
+  // Escala y posición ajustadas para que la cabeza completa sea 100% visible sin recorte
+  return <primitive ref={group} object={model} scale={0.96} position={[0.08, -0.42, 0]} />
 }
 
 function BodyModel() {
@@ -55,12 +56,12 @@ function BodyModel() {
       <div className="body-heart-pulse">♥</div>
       <div className="body-platform"><i /><i /><i /></div>
       <Suspense fallback={<div className="body-model-loading">Sincronizando modelo…</div>}>
-        <Canvas camera={{ position: [0, 2.85, 12.8], fov: 31 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
-          <ambientLight intensity={.5} color="#43dcff" />
+        <Canvas camera={{ position: [0, 2.35, 14.2], fov: 32 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
+          <ambientLight intensity={0.5} color="#43dcff" />
           <pointLight position={[2, 3, 4]} intensity={8} color="#00bfff" distance={10} />
           <pointLight position={[-2, 0, 3]} intensity={6} color="#70f5ff" distance={9} />
           <ExplorerModel />
-          <OrbitControls target={[0, 2.85, .9]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
+          <OrbitControls target={[0, 2.35, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
       <div className="body-callout body-callout--mood"><small>BIENESTAR</small><strong>Cansado</strong></div>

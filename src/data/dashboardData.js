@@ -22,11 +22,10 @@ export const navItems = [
 ]
 
 export const tasks = [
-  'Registrar presión arterial (tarde)',
+  'Registrar presión arterial (diario)',
   'Completar evaluación emocional',
-  'Rutina de ejercicio programada',
+  'Realizar diagnóstico programado',
   'Registrar horas de sueño',
 ]
-
 
 export const ActivityIcon = Activity

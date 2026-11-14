@@ -1,24 +1,43 @@
 import { useState } from 'react'
-import { Activity, ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
-import { openSession } from '../api/client'
+import { Activity, ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck, UserRound } from 'lucide-react'
+import { loginAccount, registerAccount } from '../api/client'
 import LoginAstronaut from '../components/login/LoginAstronaut'
 
 export default function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
-
+  const [mode, setMode] = useState('login')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const registering = mode === 'register'
 
-  // El backend no tiene cuentas: "ingresar" abre (o reanuda) una sesión local con token.
+  const changeMode = (nextMode) => {
+    setMode(nextMode)
+    setError('')
+    setShowPassword(false)
+  }
+
   const submit = async (event) => {
     event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const name = String(form.get('name') || '').trim()
+    const email = String(form.get('email') || '').trim()
+    const password = String(form.get('password') || '')
+    const confirmation = String(form.get('confirmation') || '')
+
+    if (registering && password !== confirmation) {
+      setError('Las contraseñas no coinciden.')
+      return
+    }
+
     setBusy(true)
     setError('')
     try {
-      await openSession()
-      onLogin()
-    } catch (e) {
-      setError(e.message)
+      const session = registering
+        ? await registerAccount(name, email, password)
+        : await loginAccount(email, password)
+      onLogin(session)
+    } catch (requestError) {
+      setError(requestError.message)
     } finally {
       setBusy(false)
     }
@@ -54,29 +73,52 @@ export default function LoginPage({ onLogin }) {
         <LoginAstronaut />
       </section>
 
-      <form className="access-card" onSubmit={submit}>
+      <form className={`access-card ${registering ? 'access-card--register' : ''}`} onSubmit={submit}>
         <div className="access-card__edge access-card__edge--top" />
         <div className="access-card__edge access-card__edge--bottom" />
+        <div className="access-mode" role="tablist" aria-label="Tipo de acceso">
+          <button type="button" role="tab" aria-selected={!registering} className={!registering ? 'is-active' : ''} onClick={() => changeMode('login')}>Ingresar</button>
+          <button type="button" role="tab" aria-selected={registering} className={registering ? 'is-active' : ''} onClick={() => changeMode('register')}>Crear cuenta</button>
+        </div>
         <div className="access-card__title"><span />CENTRO DE ACCESO<span /></div>
-        <h2>Bienvenido, astronauta</h2>
-        <p>Prototipo sin cuentas: ingresar abre una sesión local con datos ficticios.</p>
+        <h2>{registering ? 'Crea tu perfil de misión' : 'Bienvenido, astronauta'}</h2>
+        <p>{registering ? 'Tus registros quedarán vinculados a esta cuenta.' : 'Ingresa para continuar con tus registros de salud.'}</p>
+
+        {registering && (
+          <label className="access-input">
+            <UserRound size={24} />
+            <input type="text" name="name" placeholder="Nombre completo" autoComplete="name" minLength="2" maxLength="80" required />
+          </label>
+        )}
 
         <label className="access-input">
           <Mail size={24} />
-          <input type="email" name="email" placeholder="Correo institucional" autoComplete="username" />
+          <input type="email" name="email" placeholder="Correo institucional" autoComplete="username" maxLength="254" required />
         </label>
 
         <label className="access-input">
           <LockKeyhole size={24} />
-          <input type={showPassword ? 'text' : 'password'} name="password" placeholder="Contraseña" autoComplete="current-password" />
+          <input type={showPassword ? 'text' : 'password'} name="password" placeholder="Contraseña (mínimo 8 caracteres)" autoComplete={registering ? 'new-password' : 'current-password'} minLength="8" maxLength="128" required />
           <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
             {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
           </button>
         </label>
 
-        <button className="access-submit" type="submit" disabled={busy}>{busy ? 'CONECTANDO…' : 'INGRESAR AL CENTRO DE CONTROL'} <ArrowRight size={20} /></button>
+        {registering && (
+          <label className="access-input">
+            <LockKeyhole size={24} />
+            <input type={showPassword ? 'text' : 'password'} name="confirmation" placeholder="Confirma la contraseña" autoComplete="new-password" minLength="8" maxLength="128" required />
+          </label>
+        )}
+
+        <button className="access-submit" type="submit" disabled={busy}>
+          {busy ? 'PROCESANDO…' : registering ? 'CREAR CUENTA Y CONTINUAR' : 'INGRESAR AL CENTRO DE CONTROL'} <ArrowRight size={20} />
+        </button>
         {error && <p className="access-error" role="alert">{error}</p>}
-        <div className="access-secure"><ShieldCheck size={18} /> Conexión segura</div>
+        <button className="access-alternate" type="button" onClick={() => changeMode(registering ? 'login' : 'register')}>
+          {registering ? '¿Ya tienes una cuenta? Ingresa' : '¿Aún no tienes cuenta? Regístrate'}
+        </button>
+        <div className="access-secure"><ShieldCheck size={18} /> Contraseña protegida · sesión privada</div>
       </form>
 
       <footer className="login-footer">ASTRA HEALTH · SPACE MEDICAL INTELLIGENCE</footer>

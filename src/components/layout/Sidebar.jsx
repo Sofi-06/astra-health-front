@@ -1,49 +1,130 @@
 import { useState } from 'react'
-import { Menu, Radio, X } from 'lucide-react'
+import {
+  Calendar,
+  Globe,
+  LayoutList,
+  LogOut,
+  Menu,
+  Rocket,
+  X,
+} from 'lucide-react'
 import { navItems } from '../../data/dashboardData'
+import { formatWhen } from '../../data/format'
 
 function Brand() {
   return (
     <div className="brand">
-      <div className="brand__mark" aria-hidden="true"><span>✦</span></div>
-      <div><strong>ASTRA</strong><small>HEALTH SYSTEM</small></div>
+      <img src="/assets/logo3.png" alt="ASTRA HEALTH Logo" className="brand__logo-img" />
+      <div className="brand__text">
+        <strong>ASTRA</strong>
+        <small>HEALTH</small>
+      </div>
     </div>
   )
 }
 
-export default function Sidebar({ activeItem = 'Dashboard', onSelect, onNotify }) {
+export default function Sidebar({
+  activeItem = 'Dashboard',
+  onSelect,
+  onNotify,
+  sessionDay = 145,
+  sessionStartedAt,
+  onLogout,
+}) {
   const [open, setOpen] = useState(false)
 
   const selectItem = (label) => {
     setOpen(false)
-    if (['Dashboard', 'Health Monitor', 'Mind Tracker', 'Body Explorer'].includes(label)) {
+    const available = [
+      'Dashboard',
+      'Health Monitor',
+      'Mind Tracker',
+      'Body Explorer',
+      'Space Health Insights',
+      'Smart Alerts',
+      'Mission Challenges',
+      'Health Analytics',
+    ]
+    if (available.includes(label)) {
       onSelect?.(label)
       return
     }
-    onNotify(`${label} estará disponible en la próxima misión.`)
+    onNotify?.(`${label} estará disponible en la próxima misión.`)
   }
 
   return (
     <>
-      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir navegación"><Menu size={21} /></button>
-      <button className={`sidebar-backdrop ${open ? 'is-visible' : ''}`} onClick={() => setOpen(false)} aria-label="Cerrar navegación" />
+      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir navegación">
+        <Menu size={21} />
+      </button>
+
+      <button
+        className={`sidebar-backdrop ${open ? 'is-visible' : ''}`}
+        onClick={() => setOpen(false)}
+        aria-label="Cerrar navegación"
+      />
+
       <aside className={`sidebar glass-panel ${open ? 'is-open' : ''}`}>
-        <button className="sidebar__close" onClick={() => setOpen(false)} aria-label="Cerrar navegación"><X /></button>
+        <button
+          className="sidebar__close"
+          onClick={() => setOpen(false)}
+          aria-label="Cerrar navegación"
+          type="button"
+        >
+          <X size={18} />
+        </button>
+
         <Brand />
+
         <nav className="sidebar__nav" aria-label="Navegación principal">
           {navItems.map(({ label, icon: Icon }) => (
-            <button key={label} className={`nav-item ${activeItem === label ? 'nav-item--active' : ''}`} onClick={() => selectItem(label)}>
-              <Icon size={15} strokeWidth={1.5} /><span>{label}</span>
+            <button
+              key={label}
+              className={`nav-item ${activeItem === label ? 'nav-item--active' : ''}`}
+              onClick={() => selectItem(label)}
+              type="button"
+            >
+              <Icon size={16} strokeWidth={1.6} />
+              <span>{label}</span>
             </button>
           ))}
         </nav>
+
         <div className="mission-card">
-          <span className="eyebrow">MISSION CONTEXT</span>
-          <strong>Día 145</strong>
-          <p>Misión orbital · Microgravedad</p>
-          <p>Enlace con la Tierra estable</p>
-          <p className="mission-card__signal"><Radio size={12} /> Retraso de señal: 0.4 s</p>
+          <div className="mission-card__badge">
+            <Rocket size={13} className="mission-card__rocket-icon" />
+            <span className="eyebrow">MISSION CONTEXT</span>
+          </div>
+
+          <strong className="mission-card__day">Día {sessionDay}</strong>
+
+          <div className="mission-card__lines">
+            <p>
+              <Calendar size={12} />
+              <span>Inicio: {sessionStartedAt ? formatWhen(sessionStartedAt) : '14/11/26, 2:08 p.m.'}</span>
+            </p>
+            <p>
+              <Globe size={12} />
+              <span>Misión orbital · Microgravedad</span>
+            </p>
+            <p>
+              <LayoutList size={12} />
+              <span>Enlace con la Tierra estable</span>
+            </p>
+          </div>
         </div>
+
+        {onLogout && (
+          <button
+            className="sidebar__logout-btn"
+            onClick={onLogout}
+            title="Cerrar sesión"
+            type="button"
+          >
+            <LogOut size={14} />
+            <span>Cerrar sesión</span>
+          </button>
+        )}
       </aside>
     </>
   )

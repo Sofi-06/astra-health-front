@@ -1,82 +1,162 @@
 import { useState } from 'react'
+import { LogOut } from 'lucide-react'
 import Sidebar from '../components/layout/Sidebar'
-import DashboardHeader from '../components/layout/DashboardHeader'
 import HealthMonitorPage from './HealthMonitorPage'
 import MindTrackerPage from './MindTrackerPage'
 import BodyExplorerPage from './BodyExplorerPage'
+import SpaceHealthInsightsPage from './SpaceHealthInsightsPage'
+import SmartAlertsPage from './SmartAlertsPage'
+import MissionChallengesPage from './MissionChallengesPage'
+import HealthAnalyticsPage from './HealthAnalyticsPage'
 import ProfileCard from '../components/dashboard/ProfileCard'
 import MetricCard from '../components/dashboard/MetricCard'
 import TasksPanel from '../components/dashboard/TasksPanel'
 import HumanVisualizer from '../components/dashboard/HumanVisualizer'
-import StatusPanel from '../components/dashboard/StatusPanel'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
 import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
 import useHealthData from '../hooks/useHealthData'
-import { METRIC_LABELS } from '../data/format'
 
-const CARD_ORDER = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation', 'temperature', 'glucose']
+const CARD_ORDER = [
+  'heart_rate',
+  'sleep',
+  'blood_pressure',
+  'oxygen_saturation',
+  'temperature',
+  'glucose',
+]
 
-export default function DashboardPage({ onNotify }) {
+export default function DashboardPage({ onNotify, session, onLogout }) {
   const [activePage, setActivePage] = useState('Dashboard')
-  const [reviewed, setReviewed] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
-  const { latest, count, entries, history, sleep, error, reload } = useHealthData()
-  const recordedFirst = Object.entries(latest)
-    .sort(([, first], [, second]) => second.measured_at.localeCompare(first.measured_at))
-    .map(([code]) => code)
-  const cards = [...new Set([...recordedFirst, ...CARD_ORDER])].slice(0, 4)
+  const { latest, entries, history, sleep, reload } = useHealthData()
+  const sessionStartedAt = session?.created_at
+  const sessionDay = sessionStartedAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))
+    : 0
 
   const saved = async () => {
     await reload()
-    onNotify('Registro confirmado y guardado en SQLite.')
+    onNotify?.('Registro confirmado y guardado en SQLite.')
   }
+
+  const renderDashboard = () => (
+    <div className="dashboard-main-layout">
+      {/* Columna Izquierda: Información clínica, métricas y tareas */}
+      <div className="dashboard-content-column">
+        {/* Profile Card con datos reales */}
+        <ProfileCard
+          user={session?.user}
+          sessionDay={sessionDay}
+          sessionStartedAt={sessionStartedAt}
+          lastEntry={entries[0]}
+        />
+
+        {/* 6 Tarjetas de Métricas con datos reales */}
+        <div className="metrics-grid-pro">
+          {CARD_ORDER.map((code) => (
+            <MetricCard
+              key={code}
+              code={code}
+              entry={latest[code]}
+              historySeries={history?.[code]?.series?.[0]}
+              onOpenRegister={() => setModalOpen(true)}
+            />
+          ))}
+        </div>
+
+        {/* Fila: Pendientes de hoy + Análisis de sueño */}
+        <div className="dashboard-tasks-sleep-row">
+          <TasksPanel onOpenVitals={() => setModalOpen(true)} />
+          <SleepAnalysisPanel
+            analysis={sleep}
+            onReload={reload}
+            onNotify={onNotify}
+            onOpenVitals={() => setModalOpen(true)}
+          />
+        </div>
+
+        {/* Fila Inferior: Tendencias extendida a ancho completo */}
+        <div className="dashboard-trends-row">
+          <TrendsPanel history={history} onOpenVitals={() => setModalOpen(true)} />
+        </div>
+      </div>
+
+      {/* Columna Derecha: Humano Holográfico 3D */}
+      <div className="dashboard-visualizer-column">
+        <HumanVisualizer latest={latest} />
+      </div>
+    </div>
+  )
 
   const renderPage = () => {
     if (activePage === 'Health Monitor') return <HealthMonitorPage onNotify={onNotify} />
     if (activePage === 'Mind Tracker') return <MindTrackerPage onNotify={onNotify} />
     if (activePage === 'Body Explorer') return <BodyExplorerPage onNotify={onNotify} />
-
-    return <div className="dashboard-grid">
-      <div className="dashboard-column dashboard-column--left">
-        <ProfileCard />
-        <div className="metrics-grid">
-          {metrics.map((metric) => <MetricCard key={metric.id} metric={metric} reviewed={reviewed.includes(metric.id)} onReview={() => reviewMetric(metric.id)} />)}
-        </div>
-        <TasksPanel onOpenVitals={() => setModalOpen(true)} onNotify={onNotify} />
-      </div>
-      <HumanVisualizer />
-      <div className="dashboard-column dashboard-column--right">
-        <StatusPanel />
-        <TrendsPanel />
-      </div>
-    </div>
+    if (activePage === 'Space Health Insights') {
+      return <SpaceHealthInsightsPage onNotify={onNotify} sessionDay={sessionDay} />
+    }
+    if (activePage === 'Smart Alerts') {
+      return <SmartAlertsPage onNotify={onNotify} />
+    }
+    if (activePage === 'Mission Challenges') {
+      return <MissionChallengesPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} sessionDay={sessionDay} />
+    }
+    if (activePage === 'Health Analytics') {
+      return <HealthAnalyticsPage onNotify={onNotify} sessionDay={sessionDay} />
+    }
+    return renderDashboard()
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell-pro">
       <div className="space-vignette" />
-      <Sidebar activeItem={activePage} onSelect={setActivePage} onNotify={onNotify} />
-      <div className="dashboard-content">
-        <DashboardHeader page={activePage} onNotify={onNotify} />
-        {renderPage()}
-        <DashboardHeader onNotify={onNotify} />
-        <div className="dashboard-grid">
-          <div className="dashboard-column dashboard-column--left">
-            <ProfileCard lastEntry={entries[0]} />
-            <div className="metrics-grid">
-              {cards.map((code) => <MetricCard key={code} code={code} label={METRIC_LABELS[code]} entry={latest[code]} />)}
+
+      {/* Sidebar fijo a la izquierda */}
+      <Sidebar
+        activeItem={activePage}
+        onSelect={setActivePage}
+        onNotify={onNotify}
+        sessionDay={sessionDay}
+        sessionStartedAt={sessionStartedAt}
+        onLogout={onLogout}
+      />
+
+      {/* Contenido principal del dashboard */}
+      <div className="dashboard-viewport">
+        {/* Barra superior con indicador de Sistema Operativo, onda ECG y botón de Logout */}
+        <header className="dashboard-top-bar">
+          <div className="dashboard-top-bar__status">
+            <div className="system-pill">
+              <span className="system-pill-dot" />
+              <span>Sistema Operativo</span>
             </div>
-            <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
+            <svg className="ecg-pulse-svg" viewBox="0 0 50 18" fill="none" aria-hidden="true">
+              <path
+                d="M 0 9 H 14 L 18 2 L 23 16 L 27 6 L 30 11 L 33 9 H 50"
+                stroke="#31dcff"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {onLogout && (
+              <button
+                className="top-bar-logout-btn"
+                onClick={onLogout}
+                title="Cerrar sesión"
+                type="button"
+              >
+                <LogOut size={13} />
+                <span>Cerrar sesión</span>
+              </button>
+            )}
           </div>
-          <HumanVisualizer latest={latest} />
-          <div className="dashboard-column dashboard-column--right">
-            <StatusPanel latest={latest} count={count} error={error} />
-            <TrendsPanel history={history} />
-            <SleepAnalysisPanel analysis={sleep} onReload={reload} onNotify={onNotify} />
-          </div>
-        </div>
+        </header>
+
+        {renderPage()}
       </div>
+
       <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} />
     </main>
   )

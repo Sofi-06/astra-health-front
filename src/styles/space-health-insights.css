@@ -1,0 +1,383 @@
+/* ───────────────────────────────────────────────────────────
+   SPACE HEALTH INSIGHTS - EL CEREBRO DE ASTRA
+─────────────────────────────────────────────────────────── */
+
+.space-insights-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  animation: fadeIn 200ms ease;
+}
+
+.page-header-pro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 2px 4px 6px;
+}
+
+.page-header-pro h1 {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.page-header-pro p {
+  margin: 4px 0 0;
+  color: #79a8c6;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* ─── Top Constellation Card ─── */
+.insights-pattern-card {
+  padding: 20px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.insights-kicker {
+  color: #8fc7e4;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.pattern-constellation {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.constellation-lines-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ─── Central Node ─── */
+.pattern-center-node {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(12, 50, 100, 0.95) 0%, rgba(3, 20, 52, 0.95) 100%);
+  border: 2px solid #00d2ff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(0, 195, 255, 0.5), inset 0 0 16px rgba(0, 195, 255, 0.3);
+  z-index: 5;
+}
+
+.pattern-center-node strong {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+}
+
+.pattern-center-node small {
+  font-size: 0.62rem;
+  color: #7ce8ff;
+  margin-top: 1px;
+}
+
+.center-node-pulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(49, 220, 255, 0.45);
+  animation: pulseDot 3s infinite ease-in-out;
+}
+
+/* ─── Satellite Nodes ─── */
+.pattern-satellite-node {
+  position: absolute;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: rgba(6, 28, 62, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  z-index: 4;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.pattern-satellite-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(0, 195, 255, 0.3);
+}
+
+.node-title {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #92bacc;
+}
+
+.node-value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.node--sleep {
+  top: 15px;
+  left: 36%;
+  border: 1.5px solid rgba(49, 220, 255, 0.6);
+}
+
+.node--fatigue {
+  top: 15px;
+  right: 28%;
+  border: 1.5px solid rgba(255, 122, 142, 0.65);
+}
+
+.node--stress {
+  bottom: 25px;
+  right: 22%;
+  border: 1.5px solid rgba(192, 132, 252, 0.6);
+}
+
+.node--activity {
+  bottom: 10px;
+  left: 54%;
+  border: 1.5px solid rgba(255, 214, 90, 0.7);
+}
+
+.node--mood {
+  bottom: 25px;
+  left: 28%;
+  border: 1.5px solid rgba(49, 220, 255, 0.6);
+}
+
+.val--down {
+  color: #38bdf8;
+}
+
+.val--up-warn {
+  color: #ff9da8;
+}
+
+.val--down-gold {
+  color: #ffd65a;
+}
+
+/* ─── Metadata Context Row ─── */
+.insights-mission-meta-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(49, 220, 255, 0.14);
+}
+
+.insights-mission-meta-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.insights-mission-meta-row span {
+  color: #79a4be;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.insights-mission-meta-row strong {
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* ─── Bottom Grid (3 Panels) ─── */
+.insights-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 16px;
+}
+
+/* Panel 1: Sueño Chart */
+.insights-chart-panel {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sleep-curve-container {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.sleep-curve-y {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #648ba3;
+  font-size: 0.6rem;
+  padding-bottom: 18px;
+}
+
+.sleep-curve-svg-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sleep-trend-svg {
+  width: 100%;
+  height: 90px;
+  overflow: visible;
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.35));
+}
+
+.sleep-curve-x {
+  display: flex;
+  justify-content: space-between;
+  color: #648ba3;
+  font-size: 0.6rem;
+}
+
+.sleep-trend-footnote {
+  margin: 6px 0 0;
+  color: #8bb1c6;
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+
+/* Panel 2: Orientación Preventiva */
+.insights-actions-panel {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.insights-actions-panel h3 {
+  margin: 10px 0 8px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.recommendations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recommendations-list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #c9e2f2;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.rec-bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #31dcff;
+  box-shadow: 0 0 8px #31dcff;
+  flex-shrink: 0;
+}
+
+.export-report-btn {
+  margin-top: 16px;
+  width: 100%;
+  justify-content: center;
+  padding: 9px 18px;
+}
+
+/* Panel 3: Peligros del Entorno */
+.insights-hazards-panel {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hazards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-top: 4px;
+}
+
+.hazard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(49, 220, 255, 0.1);
+}
+
+.hazard-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #d1e8f7;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.hazard-icon {
+  color: #38bdf8;
+  font-size: 0.9rem;
+}
+
+.status-badge {
+  padding: 3px 12px;
+  border-radius: 14px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.badge--stable {
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+  background: rgba(22, 101, 52, 0.25);
+}
+
+.badge--followup {
+  border: 1px solid rgba(255, 214, 90, 0.55);
+  color: #ffd25a;
+  background: rgba(120, 85, 20, 0.25);
+}
+
+@media (max-width: 1200px) {
+  .insights-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

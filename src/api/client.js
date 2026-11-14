@@ -32,19 +32,33 @@ async function request(path, { method = 'GET', body } = {}) {
 
 // Reanuda la sesión guardada o crea una nueva si venció o no existe.
 export async function openSession() {
-  if (token) {
-    try { await request('session'); return } catch (error) {
-      if (error.status !== 401) throw error
-      token = null; write(null)
-    }
+  if (!token) return null
+  try {
+    const session = await request('session')
+    if (!session.user) throw new ApiError('Inicia sesión con tu cuenta.', 401)
+    return session
+  } catch (error) {
+    if (error.status !== 401) throw error
+    token = null
+    write(null)
+    return null
   }
-  const created = await request('sessions', { method: 'POST' })
-  token = created.token
-  write(token)
 }
 
+const saveAuth = (session) => {
+  token = session.token
+  write(token)
+  return session
+}
+
+export const loginAccount = async (email, password) =>
+  saveAuth(await request('auth/login', { method: 'POST', body: { email, password } }))
+
+export const registerAccount = async (name, email, password) =>
+  saveAuth(await request('auth/register', { method: 'POST', body: { name, email, password } }))
+
 export const closeSession = async () => {
-  try { await request('session', { method: 'DELETE' }) } finally { token = null; write(null) }
+  try { if (token) await request('auth/logout', { method: 'POST' }) } finally { token = null; write(null) }
 }
 export const hasSession = () => Boolean(token)
 export const listEntries = () => request('entries?limit=500')

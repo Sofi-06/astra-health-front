@@ -22,16 +22,132 @@
 }
 
 .hm-live-copy { align-self: stretch; }
-.hm-live-value { margin-top: 12px; font-size: 3.75rem; font-weight: 750; line-height: .94; letter-spacing: -.045em; }
+.hm-live-value { 
+  margin-top: 12px; 
+  font-size: 3.75rem; 
+  font-weight: 750; 
+  line-height: .94; 
+  letter-spacing: -.045em;
+  animation: ecgBpmPulse 0.68s ease-in-out infinite;
+  transform-origin: left center;
+}
 .hm-live-value small { margin-left: 5px; color: #78bcd7; font-size: 1rem; font-weight: 500; letter-spacing: 0; }
 .hm-live-copy p { margin: 11px 0 12px; color: #8bb0c6; font-size: .7rem; }
 .hm-history-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; color: #f0d680; font-size: .62rem; border: 1px solid rgba(242, 203, 77, .58); border-radius: 20px; background: rgba(95, 78, 19, .1); }
 
-.hm-heartbeat { position: relative; height: 140px; display: flex; align-items: center; border-bottom: 1px solid rgba(87, 160, 199, .16); overflow: hidden; }
-.hm-heartbeat::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(49, 219, 255, .025), transparent 20%); }
-.hm-heartbeat svg { width: 100%; height: 130px; overflow: visible; }
-.hm-heartbeat__line { fill: none; stroke: #4ae5ff; stroke-width: 2.5; vector-effect: non-scaling-stroke; filter: url(#hm-neon); }
-.hm-heartbeat__line--glow { stroke: #42dcff; stroke-width: 9; opacity: .16; }
+/* ─── Electrocardiograma en movimiento ─── */
+.hm-heartbeat { 
+  position: relative; 
+  height: 140px; 
+  display: flex; 
+  align-items: center; 
+  border-bottom: 1px solid rgba(87, 160, 199, .16); 
+  overflow: hidden; 
+  background: rgba(3, 16, 38, 0.45);
+}
+
+.hm-heartbeat__grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(49, 220, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(49, 220, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(rgba(49, 220, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(49, 220, 255, 0.08) 1px, transparent 1px);
+  background-size: 8px 8px, 8px 8px, 40px 40px, 40px 40px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hm-heartbeat__track {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 200%;
+  min-width: 200%;
+  height: 100%;
+  flex: 0 0 auto;
+  animation: ecgTrackScroll 3.41s linear infinite;
+  will-change: transform;
+  z-index: 2;
+  pointer-events: none;
+}
+
+@keyframes ecgTrackScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.hm-heartbeat__svg { 
+  width: 50%; 
+  min-width: 50%;
+  height: 100%; 
+  flex-shrink: 0;
+  overflow: visible; 
+}
+
+.hm-heartbeat__line { 
+  fill: none; 
+  stroke: #4ae5ff; 
+  stroke-width: 2.6; 
+  vector-effect: non-scaling-stroke; 
+  filter: url(#hm-neon); 
+}
+
+.hm-heartbeat__line--glow { 
+  stroke: #31dcff; 
+  stroke-width: 9; 
+  opacity: .28; 
+}
+
+.hm-heartbeat__sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 130px;
+  background: linear-gradient(90deg, transparent 0%, rgba(49, 220, 255, 0.06) 50%, rgba(49, 220, 255, 0.25) 95%, #6befff 100%);
+  box-shadow: 2px 0 14px rgba(49, 220, 255, 0.85);
+  pointer-events: none;
+  z-index: 3;
+  animation: ecgSweepScan 3.41s linear infinite;
+}
+
+@keyframes ecgSweepScan {
+  0% { left: -140px; opacity: 0; }
+  5% { opacity: 1; }
+  95% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+.hm-heartbeat__vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  background: linear-gradient(90deg, rgba(6, 26, 56, 0.85) 0%, transparent 8%, transparent 92%, rgba(6, 26, 56, 0.85) 100%);
+}
+
+@keyframes ecgBpmPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px rgba(49, 220, 255, 0.3));
+  }
+  15% {
+    transform: scale(1.04);
+    filter: drop-shadow(0 0 10px rgba(49, 220, 255, 0.8));
+    color: #ffffff;
+  }
+  30% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 6px rgba(49, 220, 255, 0.6));
+  }
+  60% {
+    transform: scale(1);
+  }
+}
 
 .hm-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 15px; }
 .hm-tabs button { min-height: 70px; display: flex; align-items: center; gap: 14px; padding: 0 20px; border: 1px solid rgba(61, 154, 214, .27); border-radius: 20px; color: #e4edf7; background: linear-gradient(145deg, rgba(11, 49, 91, .9), rgba(5, 29, 64, .83)); box-shadow: inset 0 1px rgba(255, 255, 255, .025), 0 12px 35px rgba(0, 5, 20, .14); cursor: pointer; font-size: .88rem; transition: 170ms ease; }

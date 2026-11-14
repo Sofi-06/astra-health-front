@@ -1,4 +1,4 @@
-import { Bell, ChevronDown } from 'lucide-react'
+import { Bell, LogOut } from 'lucide-react'
 
 const headerCopy = {
   Dashboard: { title: 'Centro de control', subtitle: 'DASHBOARD · ¿CÓMO ESTOY HOY? ¿QUÉ DEBO HACER?' },
@@ -7,22 +7,18 @@ const headerCopy = {
   'Body Explorer': { title: 'Cuerpo humano', subtitle: 'BODY EXPLORER · EXPLORA CADA SISTEMA.' },
 }
 
-export default function DashboardHeader({ page = 'Dashboard', onNotify }) {
+export default function DashboardHeader({ page = 'Dashboard', onNotify, user, onLogout }) {
   const copy = headerCopy[page] ?? headerCopy.Dashboard
 
   return (
     <header className="dashboard-header">
       <div><h1>{copy.title}</h1><p>{copy.subtitle}</p></div>
       <div className="dashboard-header__actions">
-        <span className="prototype-pill">PROTOTIPO · DATOS SIMULADOS</span>
-        <button className="icon-button" onClick={() => onNotify('Este prototipo no genera alertas clínicas.')} aria-label="Notificaciones">
-          <Bell size={16} />
-          <i />
+        <button className="user-pill" onClick={onLogout} title="Cerrar sesión">
+          <div className="avatar avatar--small" aria-hidden="true" />
+          {user?.name || 'Astronauta'}
+          <LogOut size={14} />
         </button>
-        <button className="user-pill" onClick={() => onNotify('Perfil de la comandante Rivera.')}>
-          Cdte. A. Rivera <ChevronDown size={13} />
-        </button>
-        <div className="avatar avatar--small" aria-hidden="true" />
       </div>
     </header>
   )

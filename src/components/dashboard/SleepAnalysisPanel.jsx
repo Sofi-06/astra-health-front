@@ -1,51 +1,116 @@
 import { useState } from 'react'
+import { BedDouble } from 'lucide-react'
 import Panel from '../ui/Panel'
 import { loadSyntheticSleep } from '../../api/client'
 
-const hours = (n) => String(n).replace('.', ',')
-
-export default function SleepAnalysisPanel({ analysis, onReload, onNotify }) {
+export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpenVitals }) {
   const [busy, setBusy] = useState(false)
 
   const loadExample = async () => {
     setBusy(true)
     try {
       await loadSyntheticSleep()
-      await onReload()
-      onNotify('Datos sintéticos de sueño cargados (no son de una persona real).')
+      await onReload?.()
+      onNotify?.('Datos sintéticos de sueño cargados en SQLite.')
     } catch (e) {
-      onNotify(e.message)
+      onNotify?.(e.message)
     } finally {
       setBusy(false)
     }
   }
 
-  if (!analysis) return null
-  const calc = analysis.personal_calculation
+  const calc = analysis?.personal_calculation
+  const stats = calc?.stats
+
+  // Porcentaje calculado a partir de las horas reales vs 8h recomendadas
+  const percentage = stats?.mean_hours
+    ? Math.min(100, Math.max(0, Math.round((stats.mean_hours / 8) * 100)))
+    : null
+
+  const daysRecorded = calc?.nights_recorded || 0
+  const daysTotal = calc?.days_in_window || 7
 
   return (
-    <Panel className="sleep-analysis">
-      <span className="section-title">ANÁLISIS DE SUEÑO · {analysis.window.days} DÍAS</span>
-      <p className="sleep-analysis__message">{calc.message}</p>
-      {calc.stats && (
-        <div className="quick-stats">
-          <div><span>Promedio</span><strong>{hours(calc.stats.mean_hours)} h</strong></div>
-          <div><span>Mínimo / máximo</span><strong>{hours(calc.stats.min.hours)} / {hours(calc.stats.max.hours)} h</strong></div>
-          <div><span>Cobertura</span><strong>{calc.nights_recorded} de {calc.days_in_window} días</strong></div>
-        </div>
-      )}
-      <button className="secondary-button" onClick={loadExample} disabled={busy}>
-        {busy ? 'Cargando…' : 'Cargar datos de ejemplo (sintéticos)'}
-      </button>
-      <details className="sleep-analysis__more">
-        <summary>Qué NO se puede concluir</summary>
-        <ul>{analysis.cannot_conclude.map((text) => <li key={text}>{text}</li>)}</ul>
-      </details>
-      <details className="sleep-analysis__more">
-        <summary>Contexto general de NASA (no evalúa tus cifras)</summary>
-        <p>{analysis.education.text}</p>
-        <p><em>{analysis.education.scope}</em></p>
-      </details>
+    <Panel className="sleep-panel-pro">
+      <div className="sleep-panel-pro__header">
+        <BedDouble size={16} className="sleep-icon" />
+        <span className="section-title">
+          ANÁLISIS DE SUEÑO · {analysis?.window?.days || 7} DÍAS
+        </span>
+      </div>
+
+      <div className="sleep-panel-pro__content">
+        {stats ? (
+          <>
+            {/* Ring circular con valor real */}
+            <div className="sleep-ring-wrap">
+              <svg viewBox="0 0 100 100" className="sleep-ring-svg">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="rgba(49, 220, 255, 0.15)"
+                  strokeWidth="9"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke="#00d2ff"
+                  strokeWidth="9"
+                  strokeDasharray="251.2"
+                  strokeDashoffset={251.2 * (1 - (percentage || 0) / 100)}
+                  strokeLinecap="round"
+                  transform="rotate(-90 50 50)"
+                  className="sleep-ring-glow"
+                />
+              </svg>
+              <div className="sleep-ring-value">
+                <strong>{percentage ? `${percentage}%` : '—'}</strong>
+              </div>
+            </div>
+
+            {/* Información textual real */}
+            <div className="sleep-panel-pro__info">
+              <h3>{stats.mean_hours >= 7 ? 'Calidad óptima' : 'Sueño irregular'}</h3>
+              <p>Promedio: {stats.mean_hours} h · ({stats.min.hours}h - {stats.max.hours}h)</p>
+
+              {/* Segmentos de días registrados */}
+              <div className="sleep-segments-bar" title={`${daysRecorded} de ${daysTotal} noches registradas`}>
+                {[...Array(Math.min(10, daysTotal))].map((_, i) => (
+                  <span
+                    key={i}
+                    className={`sleep-segment ${i < daysRecorded ? 'is-active' : ''}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="sleep-empty-state">
+            <p className="sleep-empty-text">Sin datos de sueño registrados en el periodo.</p>
+            <div className="sleep-empty-actions">
+              <button
+                className="primary-pill-btn btn--compact"
+                onClick={onOpenVitals}
+                type="button"
+              >
+                + Registrar sueño
+              </button>
+              <button
+                className="secondary-pill-btn btn--compact"
+                onClick={loadExample}
+                disabled={busy}
+                type="button"
+              >
+                {busy ? 'Cargando…' : 'Cargar datos de ejemplo'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </Panel>
   )
 }

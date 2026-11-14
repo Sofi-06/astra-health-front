@@ -21,14 +21,40 @@ const sleepData = [7.4, 7.25, 7.18, 7.02, 6.9, 6.82, 6.55, 6.08, 5.98, 5.68, 5.5
 const heartData = [72, 72.8, 73.1, 74, 74.3, 73.4, 73.2, 74.5, 75.2, 79.1, 80.5, 83, 83.8, 86.4, 87.5, 88.2]
 
 function HeartbeatGraph() {
-  const pulse = 'M0 72 H95 L105 48 L115 104 L126 8 L139 95 L151 72 H255 L265 50 L275 101 L286 14 L298 92 L311 72 H415 L425 49 L436 104 L447 12 L459 94 L472 72 H575 L585 49 L596 103 L608 9 L620 96 L633 72 H737 L747 48 L758 103 L770 7 L782 96 L795 72 H895 L905 50 L916 102 L927 12 L940 93'
+  const pulse = 'M 0 70 H 40 C 45 70, 48 58, 52 58 C 56 58, 59 70, 64 70 H 72 L 77 82 L 85 8 L 94 104 L 101 70 H 108 C 114 70, 120 50, 125 50 C 130 50, 136 70, 142 70 H 160 H 200 C 205 70, 208 58, 212 58 C 216 58, 219 70, 224 70 H 232 L 237 82 L 245 8 L 254 104 L 261 70 H 268 C 274 70, 280 50, 285 50 C 290 50, 296 70, 302 70 H 320 H 360 C 365 70, 368 58, 372 58 C 376 58, 379 70, 384 70 H 392 L 397 82 L 405 8 L 414 104 L 421 70 H 428 C 434 70, 440 50, 445 50 C 450 50, 456 70, 462 70 H 480 H 520 C 525 70, 528 58, 532 58 C 536 58, 539 70, 544 70 H 552 L 557 82 L 565 8 L 574 104 L 581 70 H 588 C 594 70, 600 50, 605 50 C 610 50, 616 70, 622 70 H 640 H 680 C 685 70, 688 58, 692 58 C 696 58, 699 70, 704 70 H 712 L 717 82 L 725 8 L 734 104 L 741 70 H 748 C 754 70, 760 50, 765 50 C 770 50, 776 70, 782 70 H 800'
+
   return (
     <div className="hm-heartbeat" aria-label="Electrocardiograma en vivo">
-      <svg viewBox="0 0 940 130" preserveAspectRatio="none" role="img">
-        <defs><filter id="hm-neon"><feGaussianBlur stdDeviation="4" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
-        <path className="hm-heartbeat__line hm-heartbeat__line--glow" d={pulse} />
-        <path className="hm-heartbeat__line" d={pulse} />
-      </svg>
+      {/* Grilla médica milimétrica de osciloscopio */}
+      <div className="hm-heartbeat__grid" />
+
+      {/* Línea de barrido de osciloscopio */}
+      <div className="hm-heartbeat__sweep" />
+
+      {/* Pista animada continua en bucle infinito */}
+      <div className="hm-heartbeat__track">
+        <svg viewBox="0 0 800 130" className="hm-heartbeat__svg" preserveAspectRatio="none" role="img">
+          <defs>
+            <filter id="hm-neon">
+              <feGaussianBlur stdDeviation="3.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <path className="hm-heartbeat__line hm-heartbeat__line--glow" d={pulse} />
+          <path className="hm-heartbeat__line" d={pulse} />
+        </svg>
+
+        <svg viewBox="0 0 800 130" className="hm-heartbeat__svg" preserveAspectRatio="none" role="img" aria-hidden="true">
+          <path className="hm-heartbeat__line hm-heartbeat__line--glow" d={pulse} />
+          <path className="hm-heartbeat__line" d={pulse} />
+        </svg>
+      </div>
+
+      {/* Viñeta de desvanecimiento suave en bordes */}
+      <div className="hm-heartbeat__vignette" />
     </div>
   )
 }
