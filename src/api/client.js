@@ -35,7 +35,7 @@ export async function openSession() {
   if (!token) return null
   try {
     const session = await request('session')
-    if (!session.user) throw new ApiError('Inicia sesión con tu cuenta.', 401)
+    if (!session.user) return null
     return session
   } catch (error) {
     if (error.status !== 401) throw error
