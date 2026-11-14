@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Check, Plus, Stethoscope } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import Panel from '../ui/Panel'
-import { quickStats, tasks } from '../../data/dashboardData'
+import { tasks } from '../../data/dashboardData'
+import { METRIC_LABELS, formatValue } from '../../data/format'
 
-export default function TasksPanel({ onOpenVitals, onNotify }) {
+export default function TasksPanel({ onOpenVitals, latest }) {
   const [done, setDone] = useState([])
 
   const toggle = (index) => {
@@ -23,10 +24,12 @@ export default function TasksPanel({ onOpenVitals, onNotify }) {
       </div>
       <div className="tasks-panel__actions">
         <button className="primary-button" onClick={onOpenVitals}><Plus size={15} /> Registrar signos</button>
-        <button className="secondary-button" onClick={() => onNotify('Check-in emocional iniciado.')}><Stethoscope size={15} /> Check-in</button>
       </div>
       <div className="quick-stats">
-        {quickStats.map((stat) => <div key={stat.label}><span>{stat.label}</span><strong>{stat.value}</strong></div>)}
+        {['temperature', 'glucose'].map((code) => {
+          const c = latest[code]?.candidate
+          return <div key={code}><span>{METRIC_LABELS[code]}</span><strong>{c ? `${formatValue(c)} ${c.unit}` : '—'}</strong></div>
+        })}
       </div>
     </Panel>
   )

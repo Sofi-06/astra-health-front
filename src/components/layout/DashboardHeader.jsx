@@ -9,7 +9,7 @@ export default function DashboardHeader({ onNotify }) {
       </div>
       <div className="dashboard-header__actions">
         <span className="prototype-pill">PROTOTIPO · DATOS SIMULADOS</span>
-        <button className="icon-button" onClick={() => onNotify('No tienes alertas críticas nuevas.')} aria-label="Notificaciones">
+        <button className="icon-button" onClick={() => onNotify('Este prototipo no genera alertas clínicas.')} aria-label="Notificaciones">
           <Bell size={16} />
           <i />
         </button>

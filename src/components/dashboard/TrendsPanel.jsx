@@ -1,13 +1,20 @@
 import Panel from '../ui/Panel'
 import MiniChart from './MiniChart'
-import { heartTrend, sleepTrend } from '../../data/dashboardData'
 
-export default function TrendsPanel() {
+function seriesOf(history) {
+  // Las unidades nunca se mezclan: se grafica solo la serie con más puntos.
+  const series = [...(history?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
+  return series ? { unit: series.unit, points: series.points } : { unit: '', points: [] }
+}
+
+export default function TrendsPanel({ history }) {
+  const sleep = seriesOf(history.sleep)
+  const heart = seriesOf(history.heart_rate)
   return (
     <Panel className="trends-panel">
       <span className="section-title">TENDENCIAS</span>
-      <MiniChart title="Sueño · últimos 7 días" data={sleepTrend} color="#86a9ff" min={3.5} max={8} />
-      <MiniChart title="Frecuencia cardiaca · últimos 7 días" data={heartTrend} color="#35efff" min={65} max={95} />
+      <MiniChart title="Sueño declarado · 30 días" unit={sleep.unit} records={sleep.points} color="#86a9ff" />
+      <MiniChart title="Pulso · 30 días" unit={heart.unit} records={heart.points} color="#35efff" />
     </Panel>
   )
 }

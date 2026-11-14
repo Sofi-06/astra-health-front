@@ -1,19 +1,19 @@
-import { Check, Eye } from 'lucide-react'
 import Panel from '../ui/Panel'
+import { formatValue, formatWhen } from '../../data/format'
 
-export default function MetricCard({ metric, reviewed, onReview }) {
+export default function MetricCard({ label, entry }) {
+  const candidate = entry?.candidate
   return (
-    <Panel className={`metric-card metric-card--${metric.tone}`}>
+    <Panel className="metric-card">
       <div className="metric-card__copy">
-        <p>{metric.label}</p>
-        <div className="metric-card__value">{metric.value}<small>{metric.unit}</small></div>
-        <button className="status-chip" onClick={onReview}>
-          {reviewed ? <Check size={12} /> : <Eye size={12} />}
-          {reviewed ? 'Visto' : metric.tone === 'good' ? 'Estable' : 'Revisar'}
-        </button>
-      </div>
-      <div className="radial-indicator" style={{ '--progress': `${metric.progress * 3.6}deg` }}>
-        <span />
+        <p>{label}</p>
+        <div className="metric-card__value">
+          {candidate ? formatValue(candidate) : '—'}
+          {candidate && <small>{candidate.unit}</small>}
+        </div>
+        <span className="metric-card__when">
+          {entry ? `${formatWhen(entry.measured_at)} · ${entry.origin}` : 'Sin registros'}
+        </span>
       </div>
     </Panel>
   )

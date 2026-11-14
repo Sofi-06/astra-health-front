@@ -1,13 +1,27 @@
 import { useState } from 'react'
 import { Activity, ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
+import { openSession } from '../api/client'
 import LoginAstronaut from '../components/login/LoginAstronaut'
 
 export default function LoginPage({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false)
 
-  const submit = (event) => {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  // El backend no tiene cuentas: "ingresar" abre (o reanuda) una sesión local con token.
+  const submit = async (event) => {
     event.preventDefault()
-    onLogin()
+    setBusy(true)
+    setError('')
+    try {
+      await openSession()
+      onLogin()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -45,22 +59,23 @@ export default function LoginPage({ onLogin }) {
         <div className="access-card__edge access-card__edge--bottom" />
         <div className="access-card__title"><span />CENTRO DE ACCESO<span /></div>
         <h2>Bienvenido, astronauta</h2>
-        <p>Accede al sistema de monitoreo de salud.</p>
+        <p>Prototipo sin cuentas: ingresar abre una sesión local de 24 h con datos ficticios.</p>
 
         <label className="access-input">
           <Mail size={24} />
-          <input type="email" name="email" placeholder="Correo institucional" defaultValue="a.rivera@astra.demo" autoComplete="username" required />
+          <input type="email" name="email" placeholder="Correo institucional" autoComplete="username" />
         </label>
 
         <label className="access-input">
           <LockKeyhole size={24} />
-          <input type={showPassword ? 'text' : 'password'} name="password" placeholder="Contraseña" defaultValue="astronauta" autoComplete="current-password" required />
+          <input type={showPassword ? 'text' : 'password'} name="password" placeholder="Contraseña" autoComplete="current-password" />
           <button type="button" onClick={() => setShowPassword((visible) => !visible)} aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
             {showPassword ? <EyeOff size={22} /> : <Eye size={22} />}
           </button>
         </label>
 
-        <button className="access-submit" type="submit">INGRESAR AL CENTRO DE CONTROL <ArrowRight size={20} /></button>
+        <button className="access-submit" type="submit" disabled={busy}>{busy ? 'CONECTANDO…' : 'INGRESAR AL CENTRO DE CONTROL'} <ArrowRight size={20} /></button>
+        {error && <p className="access-error" role="alert">{error}</p>}
         <div className="access-secure"><ShieldCheck size={18} /> Conexión segura</div>
       </form>
 

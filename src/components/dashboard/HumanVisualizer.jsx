@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Float, OrbitControls, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
+import { formatValue } from '../../data/format'
 
 function HologramModel() {
   const group = useRef()
@@ -48,12 +49,12 @@ function HologramFallback() {
 }
 
 const dataPoints = [
-  { label: 'SUEÑO', value: '4.6', unit: 'h', className: 'bio-label--sleep' },
-  { label: 'FREC. CARDÍACA', value: '88', unit: 'bpm', className: 'bio-label--heart' },
-  { label: 'ACTIVIDAD', value: '25', unit: 'min', className: 'bio-label--activity' },
+  { code: 'sleep', label: 'SUEÑO', className: 'bio-label--sleep' },
+  { code: 'heart_rate', label: 'PULSO', className: 'bio-label--heart' },
+  { code: 'temperature', label: 'TEMPERATURA', className: 'bio-label--activity' },
 ]
 
-export default function HumanVisualizer() {
+export default function HumanVisualizer({ latest }) {
   return (
     <section className="human-visualizer" aria-label="Modelo biométrico 3D interactivo">
       <div className="scan-line" />
@@ -68,12 +69,15 @@ export default function HumanVisualizer() {
           <OrbitControls target={[0, 2.85, 0.92]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
-      {dataPoints.map((point) => (
-        <div key={point.label} className={`bio-label ${point.className}`}>
-          <span>{point.label}</span>
-          <strong>{point.value} <small>{point.unit}</small></strong>
-        </div>
-      ))}
+      {dataPoints.map((point) => {
+        const c = latest[point.code]?.candidate
+        return (
+          <div key={point.label} className={`bio-label ${point.className}`}>
+            <span>{point.label}</span>
+            <strong>{c ? formatValue(c) : '—'} <small>{c?.unit}</small></strong>
+          </div>
+        )
+      })}
       <p className="rotate-hint">Arrastra para explorar el modelo</p>
     </section>
   )

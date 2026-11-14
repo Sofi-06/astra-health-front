@@ -8,15 +8,18 @@ import HumanVisualizer from '../components/dashboard/HumanVisualizer'
 import StatusPanel from '../components/dashboard/StatusPanel'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
 import VitalsModal from '../components/modals/VitalsModal'
-import { metrics } from '../data/dashboardData'
+import useHealthData from '../hooks/useHealthData'
+import { METRIC_LABELS } from '../data/format'
+
+const CARDS = ['heart_rate', 'sleep', 'blood_pressure', 'oxygen_saturation']
 
 export default function DashboardPage({ onNotify }) {
-  const [reviewed, setReviewed] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
+  const { latest, count, entries, history, error, reload } = useHealthData()
 
-  const reviewMetric = (id) => {
-    setReviewed((current) => current.includes(id) ? current : [...current, id])
-    onNotify('Indicador marcado como revisado.')
+  const saved = async () => {
+    await reload()
+    onNotify('Registro confirmado y guardado en SQLite.')
   }
 
   return (
@@ -27,20 +30,20 @@ export default function DashboardPage({ onNotify }) {
         <DashboardHeader onNotify={onNotify} />
         <div className="dashboard-grid">
           <div className="dashboard-column dashboard-column--left">
-            <ProfileCard />
+            <ProfileCard lastEntry={entries[0]} />
             <div className="metrics-grid">
-              {metrics.map((metric) => <MetricCard key={metric.id} metric={metric} reviewed={reviewed.includes(metric.id)} onReview={() => reviewMetric(metric.id)} />)}
+              {CARDS.map((code) => <MetricCard key={code} label={METRIC_LABELS[code]} entry={latest[code]} />)}
             </div>
-            <TasksPanel onOpenVitals={() => setModalOpen(true)} onNotify={onNotify} />
+            <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
           </div>
-          <HumanVisualizer />
+          <HumanVisualizer latest={latest} />
           <div className="dashboard-column dashboard-column--right">
-            <StatusPanel />
-            <TrendsPanel />
+            <StatusPanel latest={latest} count={count} error={error} />
+            <TrendsPanel history={history} />
           </div>
         </div>
       </div>
-      <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSave={() => onNotify('Signos vitales guardados y sincronizados.')} />
+      <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} />
     </main>
   )
 }
