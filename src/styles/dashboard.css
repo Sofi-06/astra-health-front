@@ -62,12 +62,37 @@
   border-radius: 20px;
   overflow-y: auto;
   scrollbar-width: none;
+  transition: width 220ms ease, padding 220ms ease, transform 220ms ease;
 }
 .sidebar::-webkit-scrollbar { display: none; }
 
 /* Ocultar el botón cerrar en desktop */
 .sidebar__close {
-  display: none !important;
+  display: none;
+}
+
+.sidebar__collapse {
+  position: absolute;
+  z-index: 2;
+  top: 11px;
+  right: 11px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(49, 220, 255, 0.28);
+  border-radius: 10px;
+  color: #63e9ff;
+  background: rgba(4, 29, 62, 0.82);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.sidebar__collapse:hover {
+  border-color: rgba(99, 233, 255, 0.7);
+  background: rgba(10, 65, 112, 0.86);
+  box-shadow: 0 0 14px rgba(49, 220, 255, 0.2);
 }
 
 .mobile-menu, .sidebar-backdrop {
@@ -79,7 +104,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4px 6px 10px;
+  padding: 30px 6px 10px;
   border-bottom: 1px solid rgba(49, 220, 255, 0.14);
   margin-bottom: 8px;
   gap: 4px;
@@ -265,6 +290,77 @@
   color: #ffffff;
 }
 
+/* Riel compacto: conserva navegación e iconos sin ocupar todo el ancho. */
+.sidebar.is-collapsed {
+  width: 68px;
+  padding-inline: 8px;
+}
+
+.sidebar.is-collapsed .sidebar__collapse {
+  right: 17px;
+}
+
+.sidebar.is-collapsed .brand {
+  padding: 36px 0 9px;
+}
+
+.sidebar.is-collapsed .brand__logo-img {
+  width: 38px;
+  max-height: 38px;
+}
+
+.sidebar.is-collapsed .brand__text,
+.sidebar.is-collapsed .nav-item span,
+.sidebar.is-collapsed .mission-card__badge .eyebrow,
+.sidebar.is-collapsed .mission-card__lines,
+.sidebar.is-collapsed .sidebar__logout-btn span {
+  display: none;
+}
+
+.sidebar.is-collapsed .sidebar__nav {
+  align-items: center;
+  gap: 5px;
+}
+
+.sidebar.is-collapsed .nav-item {
+  justify-content: center;
+  width: 44px;
+  min-height: 40px;
+  padding: 8px;
+}
+
+.sidebar.is-collapsed .nav-item svg {
+  width: 19px;
+  height: 19px;
+}
+
+.sidebar.is-collapsed .mission-card {
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  width: 50px;
+  margin: 8px auto 0;
+  padding: 9px 4px;
+}
+
+.sidebar.is-collapsed .mission-card__badge {
+  justify-content: center;
+}
+
+.sidebar.is-collapsed .mission-card__day {
+  margin: 0;
+  font-size: 0.7rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.sidebar.is-collapsed .sidebar__logout-btn {
+  width: 44px;
+  min-height: 38px;
+  margin-inline: auto;
+  padding: 7px;
+}
+
 /* ─── Dashboard Main Area ─── */
 .dashboard-viewport {
   flex: 1;
@@ -274,6 +370,11 @@
   flex-direction: column;
   gap: 12px;
   padding-bottom: 24px;
+  transition: margin-left 220ms ease;
+}
+
+.sidebar.is-collapsed ~ .dashboard-viewport {
+  margin-left: 84px;
 }
 
 /* ─── Top Status Bar ─── */

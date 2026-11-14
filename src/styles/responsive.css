@@ -15,7 +15,8 @@
 }
 
 @media (max-width: 1150px) {
-  .dashboard-viewport {
+  .dashboard-viewport,
+  .sidebar.is-collapsed ~ .dashboard-viewport {
     margin-left: 0;
     width: 100%;
   }
@@ -37,11 +38,13 @@
     cursor: pointer;
   }
 
-  .sidebar {
+  .sidebar,
+  .sidebar.is-collapsed {
     transform: translateX(-110%);
     transition: transform 220ms ease;
     z-index: 50;
     width: 260px;
+    padding: 14px 12px;
     top: 0;
     bottom: 0;
     left: 0;
@@ -50,6 +53,68 @@
 
   .sidebar.is-open {
     transform: translateX(0);
+  }
+
+  .sidebar__collapse {
+    display: none;
+  }
+
+  .sidebar.is-collapsed .brand {
+    padding: 4px 6px 10px;
+  }
+
+  .sidebar.is-collapsed .brand__logo-img {
+    width: 60px;
+    max-height: 52px;
+  }
+
+  .sidebar.is-collapsed .brand__text,
+  .sidebar.is-collapsed .nav-item span,
+  .sidebar.is-collapsed .mission-card__badge .eyebrow,
+  .sidebar.is-collapsed .mission-card__lines,
+  .sidebar.is-collapsed .sidebar__logout-btn span {
+    display: block;
+  }
+
+  .sidebar.is-collapsed .sidebar__nav {
+    align-items: stretch;
+    gap: 3px;
+  }
+
+  .sidebar.is-collapsed .nav-item {
+    justify-content: flex-start;
+    width: 100%;
+    min-height: 0;
+    padding: 8px 12px;
+  }
+
+  .sidebar.is-collapsed .nav-item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .sidebar.is-collapsed .mission-card {
+    display: block;
+    width: auto;
+    margin: 10px 0 0;
+    padding: 11px 12px;
+  }
+
+  .sidebar.is-collapsed .mission-card__badge {
+    justify-content: flex-start;
+  }
+
+  .sidebar.is-collapsed .mission-card__day {
+    margin: 4px 0 6px;
+    font-size: 1.25rem;
+    text-align: left;
+  }
+
+  .sidebar.is-collapsed .sidebar__logout-btn {
+    width: 100%;
+    min-height: 0;
+    margin: 8px 0 0;
+    padding: 7px 10px;
   }
 
   .sidebar__close {

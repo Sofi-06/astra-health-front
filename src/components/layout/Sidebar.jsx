@@ -32,6 +32,7 @@ export default function Sidebar({
   onLogout,
 }) {
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   const selectItem = (label) => {
     setOpen(false)
@@ -64,7 +65,7 @@ export default function Sidebar({
         aria-label="Cerrar navegación"
       />
 
-      <aside className={`sidebar glass-panel ${open ? 'is-open' : ''}`}>
+      <aside id="main-sidebar" className={`sidebar glass-panel ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
         <button
           className="sidebar__close"
           onClick={() => setOpen(false)}
@@ -72,6 +73,18 @@ export default function Sidebar({
           type="button"
         >
           <X size={18} />
+        </button>
+
+        <button
+          className="sidebar__collapse"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-label={collapsed ? 'Expandir navegación' : 'Reducir navegación'}
+          aria-expanded={!collapsed}
+          aria-controls="main-sidebar"
+          title={collapsed ? 'Expandir menú' : 'Reducir menú'}
+          type="button"
+        >
+          <Menu size={18} />
         </button>
 
         <Brand />
@@ -82,6 +95,8 @@ export default function Sidebar({
               key={label}
               className={`nav-item ${activeItem === label ? 'nav-item--active' : ''}`}
               onClick={() => selectItem(label)}
+              title={collapsed ? label : undefined}
+              aria-label={label}
               type="button"
             >
               <Icon size={16} strokeWidth={1.6} />
@@ -90,7 +105,7 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="mission-card">
+        <div className="mission-card" title={collapsed ? `Día ${sessionDay} de misión` : undefined}>
           <div className="mission-card__badge">
             <Rocket size={13} className="mission-card__rocket-icon" />
             <span className="eyebrow">MISSION CONTEXT</span>
@@ -119,6 +134,7 @@ export default function Sidebar({
             className="sidebar__logout-btn"
             onClick={onLogout}
             title="Cerrar sesión"
+            aria-label="Cerrar sesión"
             type="button"
           >
             <LogOut size={14} />
