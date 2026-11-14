@@ -16,6 +16,7 @@ import TrendsPanel from '../components/dashboard/TrendsPanel'
 import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
 import useHealthData from '../hooks/useHealthData'
+import { updateProfileImage } from '../api/client'
 
 const CARD_ORDER = [
   'heart_rate',
@@ -26,7 +27,7 @@ const CARD_ORDER = [
   'glucose',
 ]
 
-export default function DashboardPage({ onNotify, session, onLogout }) {
+export default function DashboardPage({ onNotify, session, onLogout, onUserUpdated }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [modalOpen, setModalOpen] = useState(false)
   const { latest, entries, history, sleep, reload } = useHealthData()
@@ -40,6 +41,12 @@ export default function DashboardPage({ onNotify, session, onLogout }) {
     onNotify?.('Registro confirmado y guardado en SQLite.')
   }
 
+  const saveProfileImage = async (url) => {
+    const user = await updateProfileImage(url)
+    onUserUpdated?.(user)
+    onNotify?.(url ? 'Foto de perfil actualizada.' : 'Se restauró la imagen predeterminada.')
+  }
+
   const renderDashboard = () => (
     <div className="dashboard-main-layout">
       {/* Columna Izquierda: Información clínica, métricas y tareas */}
@@ -50,6 +57,7 @@ export default function DashboardPage({ onNotify, session, onLogout }) {
           sessionDay={sessionDay}
           sessionStartedAt={sessionStartedAt}
           lastEntry={entries[0]}
+          onChangeProfileImage={saveProfileImage}
         />
 
         {/* 6 Tarjetas de Métricas con datos reales */}

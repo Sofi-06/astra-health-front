@@ -60,6 +60,8 @@ export const registerAccount = async (name, email, password) =>
 export const closeSession = async () => {
   try { if (token) await request('auth/logout', { method: 'POST' }) } finally { token = null; write(null) }
 }
+export const updateProfileImage = (profileImageUrl) =>
+  request('profile', { method: 'PATCH', body: { profile_image_url: profileImageUrl || null } })
 export const hasSession = () => Boolean(token)
 export const listEntries = () => request('entries?limit=500')
 export const getHistory = (metric, days = 30) => request(`history?metric=${metric}&days=${days}`)

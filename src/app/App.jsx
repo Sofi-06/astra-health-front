@@ -38,7 +38,12 @@ export default function App() {
   return (
     <>
       {!checkingSession && (isAuthenticated
-        ? <DashboardPage onNotify={notify} session={session} onLogout={logout} />
+        ? <DashboardPage
+            onNotify={notify}
+            session={session}
+            onLogout={logout}
+            onUserUpdated={(user) => setSession((current) => ({ ...current, user }))}
+          />
         : <LoginPage onLogin={(data) => { setSession(data); setIsAuthenticated(true) }} />)}
       <div className={`toast ${notice ? 'toast--visible' : ''}`} role="status" aria-live="polite">
         <span className="toast__pulse" />
