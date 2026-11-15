@@ -14,6 +14,9 @@ import {
   isNegative,
   normalize,
   STATUS,
+  textAfterWakeWord,
+  findIncompleteReading,
+  mentionsIndicator,
 } from '../src/voice/astraVoice.js'
 
 const tick = async (rounds = 8) => {
@@ -101,7 +104,7 @@ const measurementReply = {
   status: 'needs_confirmation',
   pending_id: '11111111-1111-1111-1111-111111111111',
   message: 'Confirma tu lectura.',
-  candidate: { kind: 'measurement', metric: 'heart_rate', values: [82], unit: 'lpm' },
+  candidate: { kind: 'measurement', metric: 'heart_rate', values: [82], unit: 'bpm' },
 }
 
 test('normalize, wake word y clasificadores de sí/no', () => {
@@ -119,7 +122,7 @@ test('normalize, wake word y clasificadores de sí/no', () => {
 
 test('describeCandidate habla sin evaluar la cifra', () => {
   assert.equal(
-    describeCandidate({ kind: 'measurement', metric: 'heart_rate', values: [82], unit: 'lpm' }),
+    describeCandidate({ kind: 'measurement', metric: 'heart_rate', values: [82], unit: 'bpm' }),
     'pulso 82 latidos por minuto',
   )
   assert.equal(
@@ -389,7 +392,7 @@ const batchReply = {
   candidate: {
     kind: 'batch',
     measurements: [
-      { kind: 'measurement', metric: 'heart_rate', values: [80], unit: 'lpm' },
+      { kind: 'measurement', metric: 'heart_rate', values: [80], unit: 'bpm' },
       { kind: 'measurement', metric: 'temperature', values: [37], unit: '°C' },
     ],
     explicit_origin: false,
@@ -410,7 +413,7 @@ test('varias lecturas seguidas se juntan tras 3 s de silencio y se guardan de un
   bag.current.say('Astra')
   await tick()
 
-  bag.current.say('pulso 80 lpm')
+  bag.current.say('pulso 80 bpm')
   await wait(25)
   assert.equal(calls.sendMessage.length, 0, 'sigue esperando: aún no pasó la ventana de silencio')
   bag.current.say('temperatura 37 grados centígrados')
@@ -419,7 +422,7 @@ test('varias lecturas seguidas se juntan tras 3 s de silencio y se guardan de un
 
   await wait(80)
   await tick()
-  assert.deepEqual(calls.sendMessage, ['pulso 80 lpm temperatura 37 grados centígrados'])
+  assert.deepEqual(calls.sendMessage, ['pulso 80 bpm temperatura 37 grados centígrados'])
   assert.equal(calls.confirmPending.length, 1)
   assert.equal(calls.confirmPending[0].origin, 'Dato declarado por voz')
   assert.deepEqual(calls.saved, [1])
@@ -459,4 +462,146 @@ test('guarda las lecturas entendidas y dice cuáles no entendió', async () => {
   assert.deepEqual(calls.saved, [1])
   assert.match(spoken.at(-1), /ya guardé 2 lecturas/)
   assert.match(spoken.at(-1), /No entendí: temperatura/)
+})
+
+test('"hey Astra" activa y lo que sigue en la misma frase se procesa de una vez', async () => {
+  assert.equal(textAfterWakeWord('Hey Astra, mi pulso es 80 lpm'), 'mi pulso es 80 lpm')
+  assert.equal(textAfterWakeWord('hey astra'), '')
+  assert.ok(containsWakeWord('hey astra'))
+  assert.ok(!containsWakeWord('hey astronauta'))
+
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => batchReply }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Hey Astra, mi pulso es 80 y mi temperatura 37')
+  await tick()
+  assert.deepEqual(calls.sendMessage, ['mi pulso es 80 y mi temperatura 37'])
+  assert.ok(!spoken.includes('Lista para escucharte.'), 'sin saludo cuando ya dijo la lectura')
+  assert.equal(calls.confirmPending.length, 1)
+})
+
+test('solo "hey Astra" saluda y se queda escuchando', async () => {
+  const { engine, bag, spoken } = makeWorld()
+  engine.start()
+  await tick()
+  bag.current.say('hey Astra')
+  await tick()
+  assert.equal(spoken[0], 'Lista para escucharte.')
+  assert.equal(engine.getState().status, STATUS.LISTENING)
+})
+
+test('se pausa si otra función usa el micrófono y se reanuda sola', async () => {
+  const { engine, bag } = makeWorld()
+  engine.start()
+  await tick()
+  const first = bag.current
+  const created = bag.created.length
+  engine.pause()
+  assert.ok(first.stopped, 'suelta el micrófono')
+  assert.equal(engine.getState().status, STATUS.WAKE)
+  engine.resume()
+  await tick()
+  assert.equal(bag.created.length, created + 1, 'vuelve a escuchar')
+  bag.current.say('hey astra')
+  await tick()
+  assert.equal(engine.getState().status, STATUS.LISTENING)
+})
+
+test('si falta el valor, Astra lo vuelve a pedir y completa con la respuesta', async () => {
+  const sent = []
+  const { engine, bag, spoken, calls } = makeWorld({
+    autoSave: true,
+    api: {
+      sendMessage: async (text) => {
+        sent.push(text)
+        if (sent.length === 1) {
+          return { status: 'needs_clarification', message: 'Falta el valor de temperatura: es obligatorio. Dime cuánto marcó.', candidate: null, ask_metric: 'temperature' }
+        }
+        return { status: 'needs_confirmation', pending_id: '55555555-5555-5555-5555-555555555555', message: 'ok', candidate: { kind: 'measurement', metric: 'temperature', values: [37], unit: '°C' } }
+      },
+    },
+  })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('la temperatura en grados centígrados')
+  await tick()
+  assert.match(spoken.at(-1), /Falta el valor de temperatura/)
+  assert.equal(calls.confirmPending.length, 0)
+
+  bag.current.say('treinta y siete')
+  await tick()
+  assert.deepEqual(sent, ['la temperatura en grados centígrados', 'temperatura treinta y siete'])
+  assert.equal(calls.confirmPending.length, 1)
+  assert.deepEqual(calls.saved, [1])
+})
+
+test('si dice "no" al pedir el valor que falta, no guarda nada', async () => {
+  const { engine, bag, spoken, calls } = makeWorld({
+    autoSave: true,
+    api: { sendMessage: async () => ({ status: 'needs_clarification', message: 'Falta el valor de pulso.', candidate: null, ask_metric: 'heart_rate' }) },
+  })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('mi pulso')
+  await tick()
+  bag.current.say('no')
+  await tick()
+  assert.equal(calls.sendMessage.length, 1)
+  assert.equal(calls.confirmPending.length, 0)
+  assert.match(spoken.at(-1), /lo dejo sin guardar/)
+})
+
+test('guarda lo entendido y vuelve a pedir lo que quedó sin valor', async () => {
+  const reply = { ...batchReply, skipped: ['temperatura'], skipped_codes: ['temperature'] }
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => reply }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('pulso 80 y temperatura')
+  await tick()
+  assert.equal(calls.confirmPending.length, 1)
+  assert.match(spoken.at(-1), /No entendí: temperatura\. ¿Cuánto marcó temperatura\?/)
+  assert.doesNotMatch(spoken.at(-1), /seguir con más mediciones/)
+  bag.current.say('38')
+  await tick()
+  assert.equal(calls.sendMessage.at(-1), 'temperatura 38')
+})
+
+test('una lectura con datos undefined no se guarda: se vuelve a pedir', async () => {
+  assert.equal(findIncompleteReading({ kind: 'measurement', metric: 'heart_rate', values: [undefined] }), 'heart_rate')
+  assert.equal(findIncompleteReading({ kind: 'measurement', metric: 'blood_pressure', values: [120] }), 'blood_pressure')
+  assert.equal(findIncompleteReading({ kind: 'batch', measurements: [{ metric: 'glucose', values: [97] }, { metric: 'sleep', values: [null] }] }), 'sleep')
+  assert.equal(findIncompleteReading({ kind: 'measurement', metric: 'blood_pressure', values: [120, 80] }), null)
+  assert.ok(mentionsIndicator('mi pulso es 80') && !mentionsIndicator('treinta y siete'))
+
+  const bad = { status: 'needs_confirmation', pending_id: '66666666-6666-6666-6666-666666666666', message: 'x', candidate: { kind: 'measurement', metric: 'heart_rate', values: [undefined], unit: 'bpm' } }
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => bad }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('mi pulso')
+  await tick()
+  assert.equal(calls.confirmPending.length, 0)
+  assert.equal(calls.discardPending, 1)
+  assert.match(spoken.at(-1), /No entendí el valor de pulso\. ¿Cuánto marcó\?/)
+})
+
+test('una pregunta sobre límites se responde en voz alta y sigue escuchando', async () => {
+  const answer = { status: 'information', message: 'Glucosa: La referencia es de 70 a 140 mg/dL.', candidate: null }
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => answer }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('cuáles son los límites para que sea grave la glucosa')
+  await tick()
+  assert.equal(spoken.at(-1), answer.message)
+  assert.equal(calls.confirmPending.length, 0)
+  assert.equal(engine.getState().status, STATUS.LISTENING)
 })

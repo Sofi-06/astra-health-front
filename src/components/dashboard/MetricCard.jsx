@@ -5,7 +5,7 @@ import { formatValue, formatWhen } from '../../data/format'
 import { useLanguage } from '../../app/LanguageContext'
 
 const METRIC_CONFIG = {
-  heart_rate: { label: 'Pulso', defaultUnit: 'lpm', icon: Heart },
+  heart_rate: { label: 'Pulso', defaultUnit: 'bpm', icon: Heart },
   sleep: { label: 'Sueño', defaultUnit: 'h', icon: Moon },
   blood_pressure: { label: 'Presión arterial', defaultUnit: 'mmHg', icon: Activity },
   oxygen_saturation: { label: 'Saturación', defaultUnit: '%', icon: Droplet },

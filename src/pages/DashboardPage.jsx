@@ -6,6 +6,7 @@ import MetricCard from '../components/dashboard/MetricCard'
 import SystemsPanel from '../components/dashboard/SystemsPanel'
 import RecordsComparisonPanel from '../components/dashboard/RecordsComparisonPanel'
 import AstraVoicePanel from '../components/voice/AstraVoicePanel'
+import AstraAura, { useAstraOverlay } from '../components/voice/AstraAura'
 import useHealthData from '../hooks/useHealthData'
 import { loadSyntheticAll, recordWellnessAction, updateProfileImage } from '../api/client'
 import { localDateKey } from '../data/format'
@@ -61,6 +62,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
   const typingTimer = useRef(null)
   const greetingRun = useRef(0)
   const { latest, entries, history, loading, reload } = useHealthData()
+  const { snap: astraSnap, reply: astraReply, onAstraState } = useAstraOverlay()
   const sessionStartedAt = session?.created_at
   // Día de misión: el día del primer registro es el día 0 y se cuenta por fechas del calendario.
   const firstRecordAt = entries.reduce((first, entry) => (!first || entry.measured_at < first ? entry.measured_at : first), null)
@@ -210,6 +212,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
             greetingRun={greetingRunCount}
           />
         </Suspense>
+        <AstraAura snap={astraSnap} reply={astraReply} />
         {greetingVisible && (
           <div className={`dashboard-greeting ${greetingSpeaking ? 'is-speaking' : ''} ${typedGreeting.length < greetingText.length ? 'is-typing' : ''}`}>
             <div className="dashboard-greeting__halo" aria-hidden="true"><i /><i /><i /></div>
@@ -286,7 +289,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
       </div>
 
       {modalOpen && <Suspense fallback={null}><VitalsModal key={modalMetric || 'free'} open={modalOpen} initialMetric={modalMetric} onClose={() => { setModalOpen(false); setModalMetric('') }} onSaved={saved} /></Suspense>}
-      <AstraVoicePanel onNotify={onNotify} onSaved={voiceSaved} />
+      <AstraVoicePanel onNotify={onNotify} onSaved={voiceSaved} onStateChange={onAstraState} />
     </main>
   )
 }

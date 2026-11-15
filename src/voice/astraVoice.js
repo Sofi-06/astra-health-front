@@ -32,6 +32,7 @@ const GREETING = 'Lista para escucharte.'
 
 const UNIT_SPEECH = {
   lpm: 'latidos por minuto',
+  bpm: 'latidos por minuto',
   mmHg: 'milímetros de mercurio',
   '°C': 'grados Celsius',
   '°F': 'grados Fahrenheit',
@@ -50,6 +51,12 @@ export function normalize(text) {
     .replace(/[^a-z0-9ñ ]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+// Lo que se dijo después de la palabra clave ("hey Astra, mi pulso es 80" -> "mi pulso es 80").
+export function textAfterWakeWord(text) {
+  const match = new RegExp(`(?:^|\\s)${WAKE_WORD}(?![\\p{L}\\d])[\\s,.:;!?-]*`, 'iu').exec(String(text || ''))
+  return match ? String(text).slice(match.index + match[0].length).trim() : ''
 }
 
 export function containsWakeWord(text) {
@@ -106,6 +113,25 @@ function spokenValue(candidate) {
 }
 
 // Frase hablable de lo entendido, sin evaluar si la cifra es normal o no.
+const labelOf = (code) => String(METRIC_LABELS[code] || code).toLowerCase()
+
+// ¿Lo dicho nombra un indicador? Si no, es la respuesta a "¿cuánto marcó?".
+export function mentionsIndicator(text) {
+  return /(pulso|latido|frecuencia|temperatura|fiebre|presion|tension|saturacion|oxigeno|glucosa|azucar|dormi|sueno|musculo)/.test(normalize(text))
+}
+
+// Lecturas con datos que faltan (undefined, null, NaN...): se vuelven a pedir en vez de guardarlas.
+export function findIncompleteReading(candidate) {
+  const items = candidate?.kind === 'batch' ? candidate.measurements || [] : candidate?.kind === 'measurement' ? [candidate] : []
+  for (const item of items) {
+    const need = item.metric === 'blood_pressure' ? 2 : 1
+    const values = Array.isArray(item.values) ? item.values : []
+    const complete = values.length >= need && values.slice(0, need).every((v) => v !== null && v !== '' && Number.isFinite(Number(v)))
+    if (!complete) return item.metric
+  }
+  return null
+}
+
 // Origen que se anota cuando la lectura se dicta sin nombrar el instrumento.
 const VOICE_ORIGIN = 'Dato declarado por voz'
 
@@ -160,6 +186,9 @@ export function createAstraVoice({
   let noSpeechRetries = 0
   let restartTimer = null
   let settleTimer = null
+  let pausedWake = false // pausada porque otra función usa el micrófono
+  let awaitingValue = null // { code, label }: indicador al que se le pidió el valor que faltaba
+  let asks = [] // otros indicadores que también faltan por pedir
 
   const snapshot = () => ({
     status,
@@ -209,6 +238,8 @@ export function createAstraVoice({
     closeRecognition()
     speech.stopSpeaking()
     pending = null
+    awaitingValue = null
+    asks = []
     setState(STATUS.OFF, info)
   }
 
@@ -223,6 +254,8 @@ export function createAstraVoice({
   const armWake = (info = 'Di "Astra" o pulsa Hablar.') => {
     closeRecognition()
     pending = null
+    awaitingValue = null
+    asks = []
     noSpeechRetries = 0
     setState(STATUS.WAKE, info)
     const rec = speech.createRecognition('wake')
@@ -230,6 +263,13 @@ export function createAstraVoice({
     rec.onresult = (event) => {
       if (event.isFinal && containsWakeWord(event.transcript)) {
         lastUserText = event.transcript.trim()
+        // "Hey Astra, mi pulso es 80": si ya dijo algo más, se procesa de una vez, sin saludo.
+        const rest = textAfterWakeWord(event.transcript)
+        if (rest.length >= 8) {
+          closeRecognition()
+          handleUtterance(rest)
+          return
+        }
         beginTurn()
       }
     }
@@ -365,10 +405,24 @@ export function createAstraVoice({
       await exitToWake()
       return
     }
+    let spoken = text
+    if (awaitingValue) {
+      const asked = awaitingValue
+      awaitingValue = null
+      if (isNegative(text)) {
+        asks = []
+        await say('De acuerdo, lo dejo sin guardar.')
+        if (stopping) return
+        listenTurn(STATUS.LISTENING, handleUtterance)
+        return
+      }
+      // Solo dijo el valor ("37"): se le antepone el indicador por el que se preguntó.
+      if (!mentionsIndicator(text)) spoken = `${asked.label} ${text}`
+    }
     setState(STATUS.THINKING, 'Astra está procesando lo que dijiste…')
     let data
     try {
-      data = await api.sendMessage(text, { voice: true })
+      data = await api.sendMessage(spoken, { voice: true })
     } catch (caught) {
       await say(caught?.message || 'No pude hablar con el servidor. Inténtalo de nuevo.')
       if (stopping) return
@@ -379,6 +433,15 @@ export function createAstraVoice({
       pending = { pendingId: data.pending_id, candidate: data.candidate, origin: '', unclear: 0 }
       const summary = describeCandidate(data.candidate)
       const cand = data.candidate
+      const incomplete = findIncompleteReading(cand)
+      if (incomplete) {
+        discardQuietly()
+        awaitingValue = { code: incomplete, label: labelOf(incomplete) }
+        await say(`No entendí el valor de ${labelOf(incomplete)}. ¿Cuánto marcó?`)
+        if (stopping) return
+        listenTurn(STATUS.LISTENING, handleUtterance)
+        return
+      }
       const isReading = cand.kind === 'measurement' || cand.kind === 'batch'
       const spokenOrigin = isReading && cand.explicit_origin ? String(cand.suggested_origin || '').trim().slice(0, 120) : ''
       const spokenWhen = isReading && cand.explicit_time && cand.suggested_measured_at ? new Date(cand.suggested_measured_at) : null
@@ -400,8 +463,14 @@ export function createAstraVoice({
           pending = null
           onSaved(saved.entries?.length || 1)
           const clock = when.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-          const skippedNote = data.skipped?.length ? ` No entendí: ${data.skipped.join(', ')}; dime esos valores otra vez si quieres guardarlos.` : ''
-          await say(`Listo, ya guardé ${summary}${spokenOrigin.length >= 2 ? `, medido con ${spokenOrigin}` : ''}${hasSpokenTime ? ` a las ${clock}` : ''}.${skippedNote} Puedes seguir con más mediciones.`)
+          // Lo que no se entendió se vuelve a pedir, uno por uno.
+          if (data.skipped_codes?.length) asks = data.skipped_codes.map((code) => ({ code, label: labelOf(code) }))
+          const next = asks.shift() || null
+          awaitingValue = next
+          const skippedNote = data.skipped?.length
+            ? ` No entendí: ${data.skipped.join(', ')}.${next ? ` ¿Cuánto marcó ${next.label}?` : ''}`
+            : next ? ` Falta ${next.label}: ¿cuánto marcó?` : ''
+          await say(`Listo, ya guardé ${summary}${spokenOrigin.length >= 2 ? `, medido con ${spokenOrigin}` : ''}${hasSpokenTime ? ` a las ${clock}` : ''}.${skippedNote}${awaitingValue ? '' : ' Puedes seguir con más mediciones.'}`)
           if (stopping) return
           listenTurn(STATUS.LISTENING, handleUtterance)
           return
@@ -424,6 +493,8 @@ export function createAstraVoice({
       listenTurn(STATUS.AWAIT_CONFIRM, handleConfirm)
       return
     }
+    // Falta el valor de un indicador: se queda esperando solo el número.
+    if (data.ask_metric) awaitingValue = { code: data.ask_metric, label: labelOf(data.ask_metric) }
     // needs_clarification, safety_notice o information: se dice tal cual llega
     // del backend (incluido el aviso de que nadie ha sido alertado).
     await say(data.message || 'No tengo respuesta para eso.')
@@ -506,6 +577,18 @@ export function createAstraVoice({
     },
     skipSpeech() {
       speech.stopSpeaking()
+    },
+    // Otra función necesita el micrófono: solo se pausa la escucha de fondo ("Hey Astra").
+    pause() {
+      if (status !== STATUS.WAKE || stopping) return
+      closeRecognition()
+      pausedWake = true
+      setState(STATUS.WAKE, 'En pausa mientras usas el dictado.')
+    },
+    resume() {
+      if (!pausedWake) return
+      pausedWake = false
+      if (!stopping && status === STATUS.WAKE) armWake()
     },
     stop,
     getState: snapshot,

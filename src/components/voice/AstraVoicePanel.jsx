@@ -5,12 +5,13 @@ import { createBrowserSpeech } from '../../voice/speech'
 import { confirmPending, discardPending, sendMessage } from '../../api/client'
 
 const MUTE_KEY = 'astra-voice-muted'
+const ALWAYS_KEY = 'astra-voice-always' // '0' = la persona la apagó; si no, se enciende sola al abrir
 
 const STATUS_LABEL = {
   [STATUS.OFF]: 'Astra voz apagada',
   [STATUS.UNSUPPORTED]: 'Voz no disponible aquí',
   [STATUS.STARTING]: 'Preparando el micrófono…',
-  [STATUS.WAKE]: 'Escuchando: di "Astra"',
+  [STATUS.WAKE]: 'Escuchando: di "Hey Astra"',
   [STATUS.GREETING]: 'Astra te responde…',
   [STATUS.LISTENING]: 'Escuchando tu turno…',
   [STATUS.THINKING]: 'Astra está procesando…',
@@ -29,7 +30,7 @@ const ACTIVE = new Set([
 // el modo está activo y la pestaña abierta. Las lecturas dictadas (una o varias) se
 // guardan al terminar el turno, tras 3 segundos de silencio; Astra dice qué guardó.
 // Un síntoma o comentario sí requiere la confirmación hablada.
-export default function AstraVoicePanel({ onNotify, onSaved }) {
+export default function AstraVoicePanel({ onNotify, onSaved, onStateChange }) {
   const [open, setOpen] = useState(false)
   const [snap, setSnap] = useState({ status: STATUS.OFF, detail: '', lastUserText: '', lastAstraText: '' })
   const [muted, setMuted] = useState(() => {
@@ -38,20 +39,38 @@ export default function AstraVoicePanel({ onNotify, onSaved }) {
   const engineRef = useRef(null)
   const mutedRef = useRef(muted)
   const onSavedRef = useRef(onSaved)
+  const onStateRef = useRef(onStateChange)
 
   useEffect(() => { mutedRef.current = muted }, [muted])
   useEffect(() => { onSavedRef.current = onSaved }, [onSaved])
+  useEffect(() => { onStateRef.current = onStateChange }, [onStateChange])
 
   useEffect(() => {
     const speech = createBrowserSpeech({ isMuted: () => mutedRef.current })
     const engine = createAstraVoice({
       speech,
       api: { sendMessage, confirmPending, discardPending },
-      onUpdate: setSnap,
+      onUpdate: (next) => { setSnap(next); onStateRef.current?.(next) },
       onSaved: (count) => onSavedRef.current?.(count),
     })
     engineRef.current = engine
+
+    // Escucha de fondo: si el micrófono ya tiene permiso y la persona no la apagó,
+    // Astra queda lista para "Hey Astra" sin tener que pulsar nada.
+    let cancelled = false
+    const savedOff = (() => { try { return localStorage.getItem(ALWAYS_KEY) === '0' } catch { return false } })()
+    if (!savedOff && speech.supported && navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'microphone' }).then((permission) => {
+        if (!cancelled && permission.state === 'granted') engine.start()
+      }).catch(() => {})
+    }
+
+    // Otra función (dictado, nota de voz) usa el micrófono: se pausa y se reanuda sola.
+    const onMic = (event) => (event.detail?.busy ? engine.pause() : engine.resume())
+    window.addEventListener('astra:mic', onMic)
     return () => {
+      cancelled = true
+      window.removeEventListener('astra:mic', onMic)
       engine.stop()
       engineRef.current = null
     }
@@ -65,11 +84,13 @@ export default function AstraVoicePanel({ onNotify, onSaved }) {
   }
 
   const activate = () => {
+    try { localStorage.setItem(ALWAYS_KEY, '1') } catch { /* sin almacenamiento */ }
     setOpen(true)
     engineRef.current?.start()
   }
 
   const deactivate = () => {
+    try { localStorage.setItem(ALWAYS_KEY, '0') } catch { /* sin almacenamiento */ }
     engineRef.current?.stop()
     onNotify?.('Astra voz apagada. El micrófono quedó libre.')
   }
@@ -149,7 +170,9 @@ export default function AstraVoicePanel({ onNotify, onSaved }) {
           <p className="astra-voice__hint">
             Escucha solo con esta pestaña abierta y la pantalla activa; no escucha con la pestaña
             cerrada ni el celular bloqueado. El reconocimiento lo hace el servicio de voz del
-            navegador y puede necesitar internet. Puedes dictar varios signos seguidos: Astra espera
+            navegador y puede necesitar internet. Una vez que das permiso al micrófono, Astra queda escuchando
+            de fondo y se activa sola cuando dices "Hey Astra" (puedes seguir con la frase: "Hey Astra, mi pulso
+            es 80"); "Apagar Astra" la desactiva. Puedes dictar varios signos seguidos: Astra espera
             3 segundos de silencio y guarda todo junto, diciéndote qué guardó. Los síntomas sí
             piden confirmación. Las urgencias no se derivan solas: Astra solo avisa, no alerta a nadie.
           </p>
@@ -161,6 +184,7 @@ export default function AstraVoicePanel({ onNotify, onSaved }) {
         className={`astra-voice__fab ${isActive ? 'is-on' : ''}`}
         onClick={() => (open ? setOpen(false) : (isActive ? setOpen(true) : activate()))}
         aria-label={isActive ? 'Abrir panel de voz de Astra' : 'Activar Astra por voz'}
+        title={isActive ? 'Astra escucha: di "Hey Astra"' : 'Activar Astra (luego solo di "Hey Astra")'}
         aria-expanded={open}
       >
         {isActive ? <Mic size={20} /> : <MicOff size={20} />}

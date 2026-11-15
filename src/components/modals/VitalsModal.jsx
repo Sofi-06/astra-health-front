@@ -16,6 +16,7 @@ import {
 import { confirmPending, discardPending, sendMessage, transcribeAudio } from '../../api/client'
 import { METRIC_LABELS, formatValue, formatWhen } from '../../data/format'
 import { useLanguage } from '../../app/LanguageContext'
+import { micBusy, micFree } from '../../voice/micBus'
 
 const INDICATOR_EN = {
   heart_rate: { label: 'Heart rate', description: 'Beats per minute' },
@@ -28,7 +29,7 @@ const INDICATOR_EN = {
 }
 
 const INDICATORS = [
-  { code: 'heart_rate', label: 'Pulso', description: 'Latidos por minuto', unit: 'lpm', icon: HeartPulse },
+  { code: 'heart_rate', label: 'Pulso', description: 'Latidos por minuto', unit: 'bpm', icon: HeartPulse },
   { code: 'blood_pressure', label: 'Presión', description: 'Sistólica y diastólica', unit: 'mmHg', icon: Activity },
   { code: 'temperature', label: 'Temperatura', description: 'En °C o °F', units: ['°C', '°F'], icon: Thermometer },
   { code: 'oxygen_saturation', label: 'Saturación', description: 'Porcentaje de SpO₂', unit: '%', icon: Gauge },
@@ -90,7 +91,7 @@ function createMessage(metric, draft) {
   }
 
   const value = requiredNumber(draft.value, 'el valor')
-  if (metric === 'heart_rate') return `Pulso ${value} lpm`
+  if (metric === 'heart_rate') return `Pulso ${value} bpm`
   if (metric === 'oxygen_saturation') return `Saturación ${value} %`
   if (metric === 'muscle_mass') return `Músculos ${value} kg`
   if (metric === 'temperature') {
@@ -154,6 +155,7 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
     streamRef.current?.getTracks?.().forEach((track) => track.stop())
     streamRef.current = null
     setVoiceState('idle')
+    micFree()
   }
 
   useEffect(() => stopVoice, [])
@@ -321,6 +323,7 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
     }
     streamRef.current = stream
     chunksRef.current = []
+    micBusy()
     const recorder = new MediaRecorder(stream)
     recorderRef.current = recorder
     recorder.ondataavailable = (event) => { if (event.data?.size) chunksRef.current.push(event.data) }
@@ -376,6 +379,7 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
     recognition.onend = () => setVoiceState((current) => (current === 'dictating' ? 'idle' : current))
     recognitionRef.current = recognition
     try {
+      micBusy()
       recognition.start()
       setVoiceState('dictating')
       setVoiceMsg('Escuchando… el texto aparece abajo y puedes corregirlo.')
@@ -442,7 +446,7 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
           className="modal-textarea"
           value={draft.text}
           onChange={(event) => updateDraft('text', event.target.value)}
-          placeholder={tr('Ej.: pulso 82 lpm y temperatura 37,2 °C, o escribe un síntoma. Puedes mezclar varias lecturas con sus unidades.', 'E.g. heart rate 82 bpm and temperature 37.2 °C, or describe a symptom. You can include multiple readings and units.')}
+          placeholder={tr('Ej.: pulso 82 bpm y temperatura 37,2 °C, o escribe un síntoma. Puedes mezclar varias lecturas con sus unidades.', 'E.g. heart rate 82 bpm and temperature 37.2 °C, or describe a symptom. You can include multiple readings and units.')}
           rows={4}
           maxLength={2000}
           required

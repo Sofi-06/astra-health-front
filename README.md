@@ -11,7 +11,7 @@ El botón flotante (abajo a la derecha) activa la asistente de voz:
    puedes pulsar **Hablar ahora** para saltarla).
 2. Al oírla responde **"Lista para escucharte"** y queda en turnos de
    conversación: hablas, Astra contesta en voz alta y vuelve a escuchar.
-3. Si le das una lectura ("pulso ochenta y dos lpm"), Astra te pide **el
+3. Si le das una lectura ("pulso ochenta y dos bpm"), Astra te pide **el
    instrumento u origen** y luego una **confirmación hablada (sí o no)** antes
    de guardar. Decir "no" (o dos respuestas ambiguas) descarta sin guardar.
 4. Puedes preguntarle por tus registros ("¿cuál fue mi último pulso?") y te los

@@ -11,6 +11,7 @@ import {
 } from '../api/client'
 import { localDateKey } from '../data/format'
 import { useLanguage } from '../app/LanguageContext'
+import { micBusy, micFree } from '../voice/micBus'
 
 const MOOD_WORDS = ['Cansado', 'Tranquilo', 'Tenso', 'Con energía', 'Nostálgico']
 const MOOD_FACES = ['☹', '🙁', '😐', '🙂', '☺']
@@ -235,6 +236,7 @@ const [historyNow, setHistoryNow] = useState(() => Date.now())
     }
     recognitionRef.current = null
     setDictating(false)
+    micFree()
   }
 
   const toggleDictation = () => {
@@ -255,10 +257,11 @@ const [historyNow, setHistoryNow] = useState(() => Date.now())
       setDictationMessage(event.error === 'not-allowed' ? tr('Permite el micrófono para dictar. También puedes escribir.', 'Allow microphone access to dictate. You can also type.') : tr('El dictado se interrumpió; el texto ya capturado sigue editable.', 'Dictation stopped; captured text remains editable.'))
     }
     recognition.onend = () => {
-      if (recognitionRef.current === recognition) { recognitionRef.current = null; setDictating(false) }
+      if (recognitionRef.current === recognition) { recognitionRef.current = null; setDictating(false); micFree() }
     }
     recognitionRef.current = recognition
     try {
+      micBusy()
       recognition.start()
       setDictating(true)
       setDictationMessage(tr('Escuchando… Detén el dictado para revisar el texto antes de guardarlo.', 'Listening… Stop dictation and review the text before saving.'))
