@@ -318,7 +318,7 @@ export default function BodyExplorerPage({ onNotify }) {
         if (!byMetric[code] || entry.measured_at > byMetric[code].measured_at) byMetric[code] = entry
       }
       setLatest(byMetric)
-    }).catch(() => {}).finally(() => { if (!cancelled) setEntriesLoaded(true) })
+    }).catch(() => { }).finally(() => { if (!cancelled) setEntriesLoaded(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -360,7 +360,7 @@ export default function BodyExplorerPage({ onNotify }) {
             {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={120} h={22} radius="14px" />}
             {detailLoading ? (
               <SkeletonGroup label={tr('Cargando evolución del sistema…', 'Loading system evolution…')}>
-                <Skeleton w="100%" h={80} />
+                <Skeleton w="100%" h={130} />
               </SkeletonGroup>
             ) : (
               <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
