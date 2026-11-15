@@ -101,16 +101,8 @@ function StepIndicator({ step }) {
   )
 }
 
-// Recomendaciones generadas por el prototipo (LLM si el servidor tiene clave, o
-// plantilla local). Nunca se presentan como consejo médico validado.
-function RecommendationNote({ children }) {
-  return (
-    <div className="recommendations-box">
-      <p>{children}</p>
-      <small>Texto generado por el prototipo (IA o plantilla local). No es consejo médico validado.</small>
-    </div>
-  )
-}
+// Las recomendaciones generadas por el prototipo (LLM o plantilla local) NO se
+// muestran en la UI: la revisión solo presenta los candidatos y el texto propios.
 
 export default function VitalsModal({ open, onClose, onSaved }) {
   const [step, setStep] = useState(1)
@@ -472,9 +464,6 @@ export default function VitalsModal({ open, onClose, onSaved }) {
     return null
   }
 
-  const recommendations = proposal?.recommendations
-  const recommendationText = Array.isArray(recommendations) ? recommendations.join(' ') : recommendations
-
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !busy && close()}>
       <div className="vitals-modal glass-panel" role="dialog" aria-modal="true" aria-labelledby="vitals-title">
@@ -594,8 +583,6 @@ export default function VitalsModal({ open, onClose, onSaved }) {
                 instrumento de medición, no la voz.
               </p>
             )}
-
-            {recommendationText && <RecommendationNote>{recommendationText}</RecommendationNote>}
 
             <label className="modal-field modal-field--date">
               <span>¿La medición fue en otro momento?</span>
