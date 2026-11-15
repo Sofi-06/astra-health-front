@@ -19,6 +19,8 @@ export default function MetricCard({ code, entry, historySeries, loading = false
   const meta = METRIC_CONFIG[code] || { label: code, defaultUnit: '', icon: Heart }
   const Icon = meta.icon
   const candidate = entry?.candidate
+  const outOfRange = Boolean(candidate && entry?.recommendation?.out_of_range)
+  const critical = entry?.recommendation?.severity === 'critical'
 
   // Puntos reales del historial para dibujar la sparkline
   const pointsData = historySeries?.points || []
@@ -71,7 +73,14 @@ export default function MetricCard({ code, entry, historySeries, loading = false
   }
 
   return (
-    <Panel className={`metric-card-pro ${candidate ? 'is-recorded' : 'is-empty'}`}>
+    <Panel
+      className={`metric-card-pro is-clickable ${candidate ? 'is-recorded' : 'is-empty'} ${outOfRange ? (critical ? 'is-critical' : 'is-warning') : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenRegister?.(code)}
+      onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenRegister?.(code) } }}
+      aria-label={`${language === 'en' ? 'Record' : 'Registrar'} ${language === 'en' ? ({ heart_rate: 'Heart rate', sleep: 'Sleep', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', temperature: 'Temperature', glucose: 'Glucose', muscle_mass: 'Muscles' }[code] || meta.label) : meta.label}`}
+    >
       <div className="metric-card-pro__header">
         <Icon size={15} className="metric-card-pro__icon" />
         <span className="metric-card-pro__label">{language === 'en' ? ({ heart_rate: 'Heart rate', sleep: 'Sleep', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', temperature: 'Temperature', glucose: 'Glucose', muscle_mass: 'Muscles' }[code] || meta.label) : meta.label}</span>
@@ -105,7 +114,6 @@ export default function MetricCard({ code, entry, historySeries, loading = false
               <button
                 type="button"
                 className="metric-card-pro__add-btn"
-                onClick={onOpenRegister}
               >
                 {tr('+ Registrar', '+ Record')}
               </button>
@@ -147,19 +155,6 @@ export default function MetricCard({ code, entry, historySeries, loading = false
           )}
         </div>
       </div>
-
-      {candidate && entry.recommendation?.text && (
-        <p className={`metric-card-pro__rec ${entry.recommendation.out_of_range ? 'is-warning' : ''}`}>
-          {entry.recommendation.out_of_range && (
-            <strong>
-              {entry.recommendation.severity === 'critical' ? tr('⚠ Fuera de rango · crítico', '⚠ Out of range · critical') : tr('⚠ Fuera de rango', '⚠ Out of range')}
-              {entry.recommendation.reason ? ` — ${entry.recommendation.reason}` : ''}
-              <br />
-            </strong>
-          )}
-          {entry.recommendation.text}
-        </p>
-      )}
     </Panel>
   )
 }

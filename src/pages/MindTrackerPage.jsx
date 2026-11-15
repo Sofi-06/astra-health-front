@@ -97,7 +97,7 @@ function recentDays(count, language) {
   })
 }
 
-function HistoryChart({ checkIns, range }) {
+function HistoryChart({ checkIns, range, now }) {
   const { language, tr } = useLanguage()
   const days = useMemo(() => recentDays(range, language), [range, language])
   const byDate = useMemo(() => new Map(checkIns.map((item) => [item.date, item])), [checkIns])
@@ -108,6 +108,33 @@ function HistoryChart({ checkIns, range }) {
     const bottom = 207
     const x = (index) => left + (index / Math.max(1, days.length - 1)) * (right - left)
     const y = (value) => bottom - ((value - 1) / 4) * (bottom - top)
+    if (range === 1) {
+      // 24 horas: cada check-in en la hora real en que se guardó.
+      const start = now - 24 * 3600000
+      const tx = (time) => left + ((time - start) / (now - start)) * (right - left)
+      const recent = checkIns
+        .map((item) => ({ item, time: new Date(item.updated_at || item.created_at).getTime() }))
+        .filter(({ time }) => Number.isFinite(time) && time >= start && time <= now)
+        .sort((a, b) => a.time - b.time)
+      const hourSeries = HISTORY_SERIES.map((meta) => {
+        let path = ''
+        const points = []
+        recent.forEach(({ item, time }) => {
+          const raw = item[meta.key]
+          const value = raw === '' || raw == null ? NaN : Number(raw)
+          if (!Number.isFinite(value) || value < 1 || value > 5) return
+          const point = { x: tx(time), y: y(value), value, date: new Date(time).toLocaleTimeString(language === 'en' ? 'en-US' : 'es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }) }
+          path += `${points.length ? ' L' : ' M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+          points.push(point)
+        })
+        return { ...meta, path: path.trim(), points }
+      })
+      const hourLabels = [0, 1, 2, 3, 4].map((i) => {
+        const time = start + (i * (now - start)) / 4
+        return { key: `h${i}`, x: tx(time), label: new Date(time).toLocaleTimeString(language === 'en' ? 'en-US' : 'es-CO', { hour: '2-digit', minute: '2-digit', hour12: false }) }
+      })
+      return { series: hourSeries, labels: hourLabels, left, right, top, bottom }
+    }
     const series = HISTORY_SERIES.map((meta) => {
       let path = ''
       let previous = false
@@ -129,7 +156,7 @@ function HistoryChart({ checkIns, range }) {
     const labels = days.map((day, index) => ({ ...day, x: x(index) }))
       .filter((_, index) => range === 7 || index === 0 || index === range - 1 || index % Math.ceil(range / 5) === 0)
     return { series, labels, left, right, top, bottom }
-  }, [byDate, days, range])
+  }, [byDate, days, range, now, checkIns, language])
   const hasData = chart.series.some((item) => item.points.length > 0)
 
   return (
@@ -138,7 +165,7 @@ function HistoryChart({ checkIns, range }) {
         {HISTORY_SERIES.map((item) => <span key={item.key}><i style={{ backgroundColor: item.color }} />{language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}</span>)}
       </div>
       <div className="mind-chart-viewport">
-        <svg className="mind-line-chart" viewBox="0 0 750 250" role="img" aria-label={tr(`Historial real de los últimos ${range} días. Los días sin datos quedan vacíos.`, `Real history for the last ${range} days. Days without data remain empty.`)}>
+        <svg className="mind-line-chart" viewBox="0 0 750 250" role="img" aria-label={range === 1 ? tr('Historial real de las últimas 24 horas.', 'Real history for the last 24 hours.') : tr(`Historial real de los últimos ${range} días. Los días sin datos quedan vacíos.`, `Real history for the last ${range} days. Days without data remain empty.`)}>
           {[1, 2, 3, 4, 5].map((value) => {
             const y = chart.bottom - ((value - 1) / 4) * (chart.bottom - chart.top)
             return <g key={value}><line className="mind-chart-gridline" x1={chart.left} x2={chart.right} y1={y} y2={y} /><text className="mind-chart-axis" x="11" y={y + 4}>{value}</text></g>
@@ -149,7 +176,7 @@ function HistoryChart({ checkIns, range }) {
             {item.points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={range === 7 ? 5 : 3.5} fill={item.color}><title>{`${language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}: ${point.value} · ${point.date}`}</title></circle>)}
           </g>)}
         </svg>
-        {!hasData && <p className="mind-chart-empty">{tr('Aquí aparecerá tu historial cuando guardes un check-in.', 'Your history will appear here after you save a check-in.')}</p>}
+        {!hasData && <p className="mind-chart-empty">{range === 1 ? tr('Sin check-ins guardados en las últimas 24 horas.', 'No check-ins saved in the last 24 hours.') : tr('Aquí aparecerá tu historial cuando guardes un check-in.', 'Your history will appear here after you save a check-in.')}</p>}
       </div>
     </div>
   )
@@ -171,7 +198,8 @@ export default function MindTrackerPage({ onNotify }) {
   const [breathingSeconds, setBreathingSeconds] = useState(0)
   const [pauseCompleted, setPauseCompleted] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [historyRange, setHistoryRange] = useState(7)
+  const [historyRange, setHistoryRange] = useState(1)
+const [historyNow, setHistoryNow] = useState(() => Date.now())
   const [dictating, setDictating] = useState(false)
   const [dictationMessage, setDictationMessage] = useState('')
   const recognitionRef = useRef(null)
@@ -455,9 +483,9 @@ export default function MindTrackerPage({ onNotify }) {
 
       <div className="mind-bottom-grid">
         <Panel className="mind-weekly-card">
-          <div className="mind-card-heading mind-history-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {tr('HISTORIAL · ÚLTIMOS', 'HISTORY · LAST')} {historyRange} {tr('DÍAS', 'DAYS')}</span><div className="mind-range-tabs" role="group" aria-label={tr('Período del historial', 'History period')}>{[7, 30, 90].map((range) => <button type="button" key={range} className={historyRange === range ? 'is-selected' : ''} onClick={() => setHistoryRange(range)} aria-pressed={historyRange === range}>{range} {tr('días', 'days')}</button>)}</div></div>
-          <p className="mind-history-note">{tr('Cada gráfica usa tus check-ins. Un día sin respuesta queda vacío, nunca se convierte en cero.', 'Charts use your check-ins. A day without an answer stays empty; it is never shown as zero.')}</p>
-          <HistoryChart checkIns={checkIns} range={historyRange} />
+          <div className="mind-card-heading mind-history-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {historyRange === 1 ? tr('HISTORIAL · ÚLTIMAS 24 HORAS', 'HISTORY · LAST 24 HOURS') : <>{tr('HISTORIAL · ÚLTIMOS', 'HISTORY · LAST')} {historyRange} {tr('DÍAS', 'DAYS')}</>}</span><div className="mind-range-tabs" role="group" aria-label={tr('Período del historial', 'History period')}>{[1, 7, 30, 90].map((range) => <button type="button" key={range} className={historyRange === range ? 'is-selected' : ''} onClick={() => { setHistoryNow(Date.now()); setHistoryRange(range) }} aria-pressed={historyRange === range}>{range === 1 ? '24 h' : `${range} ${tr('días', 'days')}`}</button>)}</div></div>
+          <p className="mind-history-note">{historyRange === 1 ? tr('En 24 h cada check-in aparece a la hora en que lo guardaste. No se estiman horas sin registro.', 'In 24 h each check-in appears at the time you saved it. Hours without records are not estimated.') : tr('Cada gráfica usa tus check-ins. Un día sin respuesta queda vacío, nunca se convierte en cero.', 'Charts use your check-ins. A day without an answer stays empty; it is never shown as zero.')}</p>
+          <HistoryChart checkIns={checkIns} range={historyRange} now={historyNow} />
         </Panel>
 
         <Panel className="mind-wellness-card">

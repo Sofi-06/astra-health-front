@@ -59,9 +59,9 @@ function buildAlerts(entries, analyses, language) {
       detailTitle: en ? `${label} outside the reference range` : `${label} fuera del rango de referencia`,
       status: en ? 'Pending' : 'Pendiente',
       metricValue: value,
-      metricSubtitle: rec.reason || '',
-      reason: en ? `Rule: the latest confirmed ${label.toLowerCase()} record (${value}) is outside the general adult reference range. ${rec.disclaimer || ''}` : `Regla: el último registro confirmado de ${label.toLowerCase()} (${value}) está fuera del rango de referencia general para adultos. ${rec.disclaimer || ''}`,
-      actions: [rec.text, en ? 'Repeat the measurement and record it again' : 'Repite la medición y vuelve a registrarla'],
+      metricSubtitle: (en ? rec.reason_en || rec.reason : rec.reason) || '',
+      reason: en ? `Rule: the latest confirmed ${label.toLowerCase()} record (${value}) is outside the general adult reference range. ${rec.disclaimer_en || ''}` : `Regla: el último registro confirmado de ${label.toLowerCase()} (${value}) está fuera del rango de referencia general para adultos. ${rec.disclaimer || ''}`,
+      actions: [en && rec.text_en ? rec.text_en : rec.text, en ? 'Repeat the measurement and record it again' : 'Repite la medición y vuelve a registrarla'],
       timeline: [
         { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated from the saved recommendation' : 'Aviso generado desde la recomendación guardada' },
         { time: formatDay(entry.measured_at, language), text: en ? 'Out-of-range record' : 'Registro fuera de rango' },

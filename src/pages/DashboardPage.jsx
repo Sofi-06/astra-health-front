@@ -51,6 +51,8 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
     : tr('Bienvenido de nuevo a ASTRA. ¿Cómo te sientes hoy?', 'Welcome back to ASTRA. How are you feeling today?')
   const [activePage, setActivePage] = useState('Dashboard')
   const [modalOpen, setModalOpen] = useState(false)
+  const [modalMetric, setModalMetric] = useState('')
+  const openVitalsFor = (code) => { setModalMetric(code); setModalOpen(true) }
   const [greetingVisible, setGreetingVisible] = useState(false)
   const [greetingSpeaking, setGreetingSpeaking] = useState(false)
   const [typedGreeting, setTypedGreeting] = useState('')
@@ -183,15 +185,15 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
               entry={latest[code]}
               historySeries={history?.[code]?.series?.[0]}
               loading={loading}
-              onOpenRegister={() => setModalOpen(true)}
+              onOpenRegister={openVitalsFor}
             />
           ))}
+          <RecordsComparisonPanel entries={entries} loading={loading} />
         </div>
 
         {/* Fila: Sistemas de los últimos 7 días + comparación de registros */}
-        <div className="dashboard-tasks-sleep-row">
+        <div className="dashboard-systems-row">
           <SystemsPanel entries={entries} loading={loading} />
-          <RecordsComparisonPanel entries={entries} loading={loading} onOpenVitals={() => setModalOpen(true)} />
         </div>
       </div>
 
@@ -280,7 +282,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
         </Suspense>
       </div>
 
-      {modalOpen && <Suspense fallback={null}><VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} /></Suspense>}
+      {modalOpen && <Suspense fallback={null}><VitalsModal key={modalMetric || 'free'} open={modalOpen} initialMetric={modalMetric} onClose={() => { setModalOpen(false); setModalMetric('') }} onSaved={saved} /></Suspense>}
       <AstraVoicePanel onNotify={onNotify} onSaved={voiceSaved} />
     </main>
   )

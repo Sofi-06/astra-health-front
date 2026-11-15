@@ -1,14 +1,19 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { setApiLanguage } from '../api/client'
 
 const LanguageContext = createContext(null)
 
 export function LanguageProvider({ children }) {
   const [language, setLanguage] = useState(() => {
-    try { return localStorage.getItem('astra-language') === 'en' ? 'en' : 'es' } catch { return 'es' }
+    let saved = 'es'
+    try { saved = localStorage.getItem('astra-language') === 'en' ? 'en' : 'es' } catch { /* sin almacenamiento */ }
+    setApiLanguage(saved)
+    return saved
   })
 
   useEffect(() => {
     document.documentElement.lang = language
+    setApiLanguage(language)
     try { localStorage.setItem('astra-language', language) } catch { /* Storage may be disabled. */ }
   }, [language])
 

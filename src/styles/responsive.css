@@ -237,3 +237,9 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+@media (max-width: 768px) {
+  .metrics-grid-pro .comparisons-panel { grid-column: span 1; }
+  .dashboard-systems-row .heatmap-system-row { grid-template-columns: 1fr; gap: 6px; }
+  .dashboard-systems-row .heatmap-header { grid-template-columns: 1fr; gap: 8px; }
+}

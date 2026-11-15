@@ -692,3 +692,10 @@
 .body-trend-note { display: block; color: #7ba3bc; font-size: .64rem; }
 
 .body-register-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+
+.body-trend-range { display: flex; gap: 4px; margin: 0 0 4px; }
+.body-trend-range button {
+  min-width: 38px; padding: 2px 8px; border: 1px solid rgba(75, 145, 194, .35); border-radius: 12px;
+  background: rgba(10, 30, 56, .5); color: #9cc4dd; font-size: .64rem; cursor: pointer;
+}
+.body-trend-range button.is-active { background: #174d83; color: #aee8ff; border-color: rgba(49, 220, 255, .6); }

@@ -273,9 +273,12 @@ const TREND_COLORS = ['#50e6ff', '#ffb45e']
 const TREND_COLOR_BY_METRIC = { muscle_mass: '#48e5ed', heart_rate: '#ff9d83', blood_pressure: '#ffb45e', sleep: '#b98cff', oxygen_saturation: '#56a8ff', glucose: '#ffb45e', temperature: '#68f5a7' }
 
 // Seguimiento de 24 horas de un indicador: cada lectura en su hora real.
+const TREND_RANGES = [1, 7, 30, 90]
+
 function DetailTrend24({ code, label, entries, end }) {
   const { language, tr } = useLanguage()
-  const start = end - 24 * 3600000
+  const [range, setRange] = useState(1)
+  const start = end - range * 24 * 3600000
   const rows = entries
     .filter((e) => e.candidate?.kind === 'measurement' && e.candidate.metric === code && new Date(e.measured_at).getTime() >= start)
     .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
@@ -284,9 +287,19 @@ function DetailTrend24({ code, label, entries, end }) {
   const lineCount = code === 'blood_pressure' ? 2 : 1
   const color = TREND_COLOR_BY_METRIC[code] || TREND_COLORS[0]
   const title = `${label}${unit ? ` (${unit})` : ''}`
+  const rangeName = range === 1 ? tr('24 h', '24 h') : `${range} ${tr('días', 'days')}`
+  const tabs = (
+    <div className="body-trend-range" role="group" aria-label={tr('Periodo de la gráfica', 'Chart period')}>
+      {TREND_RANGES.map((value) => (
+        <button key={value} type="button" className={range === value ? 'is-active' : ''} aria-pressed={range === value} onClick={(event) => { event.stopPropagation(); setRange(value) }}>
+          {value === 1 ? '24 h' : `${value} ${tr('d', 'd')}`}
+        </button>
+      ))}
+    </div>
+  )
 
   if (sameUnit.length === 0) {
-    return <div className="body-trend"><h4 className="body-trend-title">{title}</h4><p className="chart-empty">{tr('Sin registros en las últimas 24 horas.', 'No records in the last 24 hours.')}</p></div>
+    return <div className="body-trend"><h4 className="body-trend-title">{title}</h4>{tabs}<p className="chart-empty">{range === 1 ? tr('Sin registros en las últimas 24 horas.', 'No records in the last 24 hours.') : tr(`Sin registros en los últimos ${range} días.`, `No records in the last ${range} days.`)}</p></div>
   }
 
   const all = sameUnit.flatMap((e) => e.candidate.values.slice(0, lineCount))
@@ -301,11 +314,15 @@ function DetailTrend24({ code, label, entries, end }) {
   const y = (v) => top + (1 - (v - min) / (max - min)) * (bottom - top)
   const hour = (t) => new Date(t).toLocaleTimeString(language === 'en' ? 'en-US' : 'es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
   const ticks = [0, 1, 2, 3, 4].map((i) => start + (i * (end - start)) / 4)
+  const tickLabel = (t) => range === 1
+    ? hour(t)
+    : new Date(t).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO', { day: '2-digit', month: '2-digit' })
 
   return (
     <div className="body-trend">
-      <h4 className="body-trend-title">{title} <small>{sameUnit.length} {tr('lecturas · 24 h', 'readings · 24 h')}</small></h4>
-      <svg className="body-detail-chart" viewBox="0 0 270 104" role="img" aria-label={tr(`Seguimiento de 24 horas de ${label}`, `24-hour tracking of ${label}`)}>
+      <h4 className="body-trend-title">{title} <small>{sameUnit.length} {tr('lecturas', 'readings')} · {rangeName}</small></h4>
+      {tabs}
+      <svg className="body-detail-chart" viewBox="0 0 270 104" role="img" aria-label={tr(`Seguimiento de ${label} (${rangeName})`, `Tracking of ${label} (${rangeName})`)}>
         {[max, (max + min) / 2, min].map((tick, index) => {
           const gy = top + index * ((bottom - top) / 2)
           return <g key={index}><line x1={left} x2={right} y1={gy} y2={gy} className="body-detail-grid" /><text x="1" y={gy + 4} className="body-detail-label">{tick.toFixed(1)}</text></g>
@@ -316,7 +333,7 @@ function DetailTrend24({ code, label, entries, end }) {
           const stroke = line === 0 ? color : '#ffffff'
           return <g key={line}><path d={path} fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={line ? 0.6 : 1} />{pts.map(([px, py], i) => <circle key={i} cx={px} cy={py} r="3.2" fill={stroke} />)}</g>
         })}
-        {ticks.map((t, i) => <text key={i} x={x(t)} y="100" textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'} className="body-detail-label">{hour(t)}</text>)}
+        {ticks.map((t, i) => <text key={i} x={x(t)} y="100" textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'} className="body-detail-label">{tickLabel(t)}</text>)}
       </svg>
       {code === 'blood_pressure' && <small className="body-trend-note">{tr('Línea de color: sistólica · línea blanca: diastólica', 'Colored line: systolic · white line: diastolic')}</small>}
     </div>

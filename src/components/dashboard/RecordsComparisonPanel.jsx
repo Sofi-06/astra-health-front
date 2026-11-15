@@ -5,7 +5,7 @@ import { localDateKey } from '../../data/format'
 import { useLanguage } from '../../app/LanguageContext'
 
 // Cuántos registros confirmados llevas hoy, en 7 días y en toda la misión.
-export default function RecordsComparisonPanel({ entries = [], loading = false, onOpenVitals }) {
+export default function RecordsComparisonPanel({ entries = [], loading = false }) {
   const { tr } = useLanguage()
   const counts = useMemo(() => {
     const todayKey = localDateKey(new Date().toISOString())
@@ -33,7 +33,6 @@ export default function RecordsComparisonPanel({ entries = [], loading = false, 
           </div>
         ))}
       </div>
-      <button className="primary-pill-btn" onClick={onOpenVitals} type="button">{tr('Registrar datos', 'Record data')}</button>
     </Panel>
   )
 }

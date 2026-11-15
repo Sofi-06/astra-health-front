@@ -194,8 +194,8 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
   if (flagged.length) {
     heading(tr('Valores fuera del rango de referencia', 'Values outside the reference range'))
     flagged.forEach((e) => {
-      paragraph(`${METRIC_LABELS[e.candidate.metric]}: ${formatValue(e.candidate)} ${e.candidate.unit}${e.recommendation.reason ? ` (${e.recommendation.reason})` : ''}`, 9.5, [190, 80, 20])
-      paragraph(e.recommendation.text, 9)
+      paragraph(`${METRIC_LABELS[e.candidate.metric]}: ${formatValue(e.candidate)} ${e.candidate.unit}${e.recommendation.reason ? ` (${en ? e.recommendation.reason_en || e.recommendation.reason : e.recommendation.reason})` : ''}`, 9.5, [190, 80, 20])
+      paragraph(en && e.recommendation.text_en ? e.recommendation.text_en : e.recommendation.text, 9)
       y += 1.5
     })
   }

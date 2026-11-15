@@ -2285,3 +2285,37 @@
 .metric-card-pro__rec.is-warning strong {
   color: #fb923c;
 }
+
+.metric-card-pro.is-clickable { cursor: pointer; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.metric-card-pro.is-clickable:hover { border-color: rgba(49, 220, 255, .55); }
+.metric-card-pro.is-clickable:focus-visible { outline: 2px solid #31dcff; outline-offset: 2px; }
+
+.metric-card-pro.is-warning {
+  border-color: rgba(251, 146, 60, .7);
+  background: linear-gradient(145deg, rgba(124, 58, 10, .38), rgba(20, 30, 50, .6));
+  box-shadow: 0 0 18px rgba(251, 146, 60, .22);
+}
+.metric-card-pro.is-warning .metric-card-pro__value span,
+.metric-card-pro.is-warning .metric-card-pro__icon { color: #fdba74; }
+
+.metric-card-pro.is-critical {
+  border-color: rgba(248, 113, 113, .8);
+  background: linear-gradient(145deg, rgba(127, 29, 29, .45), rgba(20, 30, 50, .6));
+  box-shadow: 0 0 20px rgba(248, 113, 113, .3);
+}
+.metric-card-pro.is-critical .metric-card-pro__value span,
+.metric-card-pro.is-critical .metric-card-pro__icon { color: #fca5a5; }
+
+/* Comparaciones: junto a las tarjetas de indicadores, ocupando el hueco de la última fila. */
+.metrics-grid-pro .comparisons-panel {
+  grid-column: span 2;
+  justify-content: center;
+}
+
+/* Sistemas · últimos 7 días: ancho completo. */
+.dashboard-systems-row .systems-heatmap-panel { width: 100%; }
+.dashboard-systems-row .heatmap-header { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; align-items: end; gap: 16px; }
+.dashboard-systems-row .heatmap-system-row { display: grid; grid-template-columns: minmax(140px, 220px) 1fr; align-items: center; gap: 16px; }
+.dashboard-systems-row .heatmap-blocks-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.dashboard-systems-row .heatmap-cell { width: 100%; height: 26px; }
+.dashboard-systems-row .heatmap-days-labels { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: .66rem; }

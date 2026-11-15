@@ -6,6 +6,9 @@ const write = (value) => {
 }
 
 let token = read()
+let apiLanguage = 'es'
+// El idioma de la página viaja al backend para que el LLM responda en ese idioma.
+export const setApiLanguage = (language) => { apiLanguage = language === 'en' ? 'en' : 'es' }
 
 export class ApiError extends Error {
   constructor(message, status) { super(message); this.status = status }
@@ -74,13 +77,13 @@ export const hasSession = () => Boolean(token)
 export const listEntries = () => request('entries?limit=500')
 export const getHistory = (metric, days = 30) => request(`history?metric=${metric}&days=${days}`)
 export const getSleepAnalysis = (days = 7) =>
-  request(`analysis/sleep?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
+  request(`analysis/sleep?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}&lang=${apiLanguage}`)
 export const loadSyntheticSleep = () => request('synthetic/sleep', { method: 'POST' })
-export const sendMessage = (text) => request('messages', { method: 'POST', body: { text } })
+export const sendMessage = (text) => request('messages', { method: 'POST', body: { text, lang: apiLanguage } })
 export const confirmPending = (payload) => request('confirmations', { method: 'POST', body: { confirmed: true, ...payload } })
 export const discardPending = () => request('pending', { method: 'DELETE' })
 export const getAnalysis = (metric, days = 7) =>
-  request(`analysis/${metric}?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
+  request(`analysis/${metric}?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}&lang=${apiLanguage}`)
 export const loadSyntheticAll = () => request('synthetic', { method: 'POST' })
 export const loadSyntheticMetric = (metric) => request(`synthetic/${metric}`, { method: 'POST' })
 export const getCapabilities = () => request('capabilities')

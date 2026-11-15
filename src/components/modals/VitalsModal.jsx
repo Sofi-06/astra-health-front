@@ -119,11 +119,12 @@ function StepIndicator({ step }) {
 // Las recomendaciones generadas por el prototipo (LLM o plantilla local) NO se
 // muestran en la UI: la revisión solo presenta los candidatos y el texto propios.
 
-export default function VitalsModal({ open, onClose, onSaved }) {
+export default function VitalsModal({ open, onClose, onSaved, initialMetric = '' }) {
   const { language, tr } = useLanguage()
   const metricName = (code) => language === 'en' ? INDICATOR_EN[code]?.label || code : METRIC_LABELS[code] || code
-  const [step, setStep] = useState(1)
-  const [metric, setMetric] = useState('')
+  const startMetric = INDICATORS.some((item) => item.code === initialMetric) ? initialMetric : ''
+  const [step, setStep] = useState(startMetric ? 2 : 1)
+  const [metric, setMetric] = useState(startMetric)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [proposal, setProposal] = useState(null)
   const [reply, setReply] = useState(null)
