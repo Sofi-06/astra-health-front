@@ -122,7 +122,6 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
   const sleep = analyses.sleep
   const education = sleep?.education
   const cannotConclude = sleep?.cannot_conclude ?? []
-  const aiRecommendation = sleep?.ai_recommendation
 
   const handleExport = async () => {
     setBusyExport(true)
@@ -162,11 +161,11 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
         {/* Constelación del resumen */}
         <div className="pattern-constellation">
           <svg className="constellation-lines-svg" viewBox="0 0 700 240" preserveAspectRatio="none">
-            <line x1="350" y1="120" x2="270" y2="40" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="480" y2="40" stroke="rgba(255, 122, 142, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="520" y2="180" stroke="rgba(192, 132, 252, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="410" y2="210" stroke="rgba(255, 214, 90, 0.55)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="210" y2="180" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <line x1="350" y1="120" x2="170" y2="40" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <line x1="350" y1="120" x2="540" y2="40" stroke="rgba(255, 122, 142, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <line x1="350" y1="120" x2="640" y2="120" stroke="rgba(192, 132, 252, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <line x1="350" y1="120" x2="350" y2="205" stroke="rgba(255, 214, 90, 0.55)" strokeWidth="1.5" strokeDasharray="4 3" />
+            <line x1="350" y1="120" x2="70" y2="120" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
           </svg>
 
           {/* Nodo central */}
@@ -226,12 +225,6 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
         {/* Panel 2: ORIENTACIÓN con fuente y límites explícitos */}
         <Panel className="insights-actions-panel">
           <span className="section-title">ORIENTACIÓN Y LÍMITES</span>
-          {aiRecommendation && (
-            <div className="recommendations-box">
-              <p>{aiRecommendation}</p>
-              <small>Texto generado por el prototipo (IA o plantilla local). No es consejo médico validado.</small>
-            </div>
-          )}
           {education && (
             <div className="education-box">
               <h3>Fuente general de la NASA</h3>
