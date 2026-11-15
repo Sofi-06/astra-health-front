@@ -178,11 +178,13 @@
 .mind-scale-input select { min-height: 33px; padding: 0 6px; font-size: .62rem; }
 
 .mind-journal-card { display: flex; min-height: 366px; flex-direction: column; }
-.mind-journal-form { display: grid; gap: 8px; margin-top: 15px; }
+.mind-journal-form { display: grid; gap: 10px; margin-top: 18px; }
 .mind-journal-form input,
 .mind-reminder-form input,
 .mind-reminder-form select { min-height: 38px; padding: 0 10px; }
-.mind-journal-form textarea { min-height: 102px; resize: vertical; padding: 10px; font: inherit; font-size: .72rem; }
+.mind-journal-form textarea { min-height: 118px; resize: vertical; padding: 13px; font: inherit; font-size: .72rem; line-height: 1.5; }
+.mind-journal-form input:focus-visible,
+.mind-journal-form textarea:focus-visible { border-color: #45dafa; box-shadow: 0 0 0 3px rgba(48, 210, 249, .13); }
 .mind-dictation-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 10px; }
 .mind-dictation-row button { display: inline-flex; flex: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 11px; border: 1px solid rgba(75, 186, 231, .55); border-radius: 17px; background: rgba(5, 43, 81, .88); color: #c1ebfa; cursor: pointer; font-size: .66rem; }
 .mind-dictation-row button.is-listening { border-color: #58e0ff; color: #eaffff; box-shadow: 0 0 12px rgba(50, 207, 245, .35); }
@@ -207,15 +209,38 @@
   font-size: .62rem;
 }
 .mind-form-actions .primary-button { min-width: 84px; border: 0; color: #051e36; background: linear-gradient(110deg, #26b9ef, #48dffc); }
-.mind-journal-list { display: grid; gap: 6px; max-height: 104px; margin-top: 12px; overflow-y: auto; }
-.mind-journal-list article { padding: 8px 10px; border: 1px solid rgba(93, 151, 187, .19); border-radius: 10px; background: rgba(2, 22, 51, .58); }
-.mind-journal-list time,
-.mind-journal-list p,
-.mind-empty { font-size: .64rem; }
-.mind-journal-list time { color: #8bb3c7; }
-.mind-journal-list p { margin: 4px 0 7px; color: #d7e8f1; line-height: 1.4; overflow-wrap: anywhere; }
-.mind-journal-list article > div { display: flex; gap: 6px; }
-.mind-empty { margin: 2px 0; color: #91b1c4; line-height: 1.4; }
+.mind-journal-history-button { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 62px; margin-top: 24px; padding: 10px 14px; border: 1px solid rgba(75, 186, 231, .44); border-radius: 13px; background: linear-gradient(100deg, rgba(13, 64, 106, .76), rgba(4, 32, 69, .78)); color: #d9f5ff; text-align: left; cursor: pointer; transition: border-color 160ms ease, background 160ms ease; }
+.mind-journal-history-button:hover { border-color: #49d9ff; background: rgba(12, 73, 118, .85); }
+.mind-journal-history-button:focus-visible,
+.mind-journal-dialog button:focus-visible { outline: 2px solid #64e7ff; outline-offset: 3px; }
+.mind-journal-history-button > span:first-child { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mind-journal-history-button svg { flex: none; color: #4bdafa; }
+.mind-journal-history-button > span:first-child > span { display: grid; gap: 3px; }
+.mind-journal-history-button strong { font-size: .7rem; }
+.mind-journal-history-button small { color: #91b9ce; font-size: .6rem; }
+.mind-journal-history-count { display: grid; flex: none; place-items: center; min-width: 31px; height: 31px; padding: 0 6px; border-radius: 50%; background: rgba(45, 208, 249, .16); color: #67e5ff; font-size: .68rem; font-weight: 800; }
+
+.mind-journal-dialog { width: min(900px, calc(100% - 28px)); height: min(720px, calc(100dvh - 40px)); margin: auto; padding: 25px; border: 1px solid rgba(57, 211, 255, .5); border-radius: 22px; background: linear-gradient(155deg, #0b315b, #041934 80%); color: #e2f3fc; box-shadow: 0 28px 90px rgba(0, 5, 20, .8), 0 0 35px rgba(41, 211, 255, .14); overflow: hidden; box-sizing: border-box; }
+.mind-journal-dialog[open] { display: flex; flex-direction: column; }
+.mind-journal-dialog::backdrop { background: rgba(0, 7, 25, .82); backdrop-filter: blur(9px); overscroll-behavior: none; }
+.mind-dialog-open,
+.mind-dialog-open body,
+.mind-dialog-open .app-shell-pro { overflow: hidden; }
+.mind-journal-dialog__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 17px; border-bottom: 1px solid rgba(91, 178, 215, .22); }
+.mind-journal-dialog__heading h2 { margin: 10px 0 5px; color: #f2fbff; font-size: 1.3rem; }
+.mind-journal-dialog__heading p,
+.mind-journal-dialog__note { margin: 0; color: #9dbbd0; font-size: .68rem; line-height: 1.5; }
+.mind-journal-dialog__close { display: grid; flex: none; place-items: center; width: 36px; height: 36px; border: 1px solid rgba(70, 185, 230, .55); border-radius: 50%; background: rgba(5, 36, 73, .9); color: #b9e8fa; cursor: pointer; }
+.mind-journal-dialog__close:hover { border-color: #56dfff; color: white; }
+.mind-journal-dialog__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 12px; min-height: 0; padding: 18px 6px 12px 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.mind-journal-dialog__list article { padding: 16px; border: 1px solid rgba(71, 168, 217, .27); border-radius: 14px; background: rgba(3, 25, 55, .78); }
+.mind-journal-dialog__list time { display: inline-flex; align-items: center; gap: 7px; color: #68dcfc; font-size: .68rem; font-weight: 700; }
+.mind-journal-dialog__list article p { margin: 12px 0 15px; color: #d5e9f3; font-size: .75rem; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-wrap; }
+.mind-journal-dialog__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mind-journal-dialog__actions button { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1px solid rgba(66, 183, 228, .42); border-radius: 18px; background: rgba(11, 66, 105, .7); color: #caeafb; cursor: pointer; font-size: .66rem; }
+.mind-journal-dialog__actions button:hover { border-color: #51dfff; }
+.mind-journal-dialog__empty { grid-column: 1 / -1; margin: 12px 0 20px; color: #9fc6d8; font-size: .75rem; text-align: center; }
+.mind-journal-dialog__note { flex: none; padding-top: 14px; border-top: 1px solid rgba(91, 178, 215, .22); }
 
 .mind-weekly-card { min-height: 367px; }
 .mind-history-heading { align-items: flex-start; }
@@ -284,7 +309,6 @@
 @media (max-width: 1450px) {
   .mind-top-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
   .mind-journal-card { grid-column: 1 / -1; min-height: 0; }
-  .mind-journal-list { max-height: 150px; }
 }
 
 @media (max-width: 1050px) {
@@ -298,6 +322,8 @@
   .mind-checkin-card::before { width: 42%; opacity: .45; }
   .mind-mood-options { max-width: 100%; }
   .mind-save-button { width: 100%; margin-top: 16px; }
+  .mind-journal-dialog { height: calc(100dvh - 24px); padding: 18px; }
+  .mind-journal-dialog__list { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {
@@ -313,6 +339,7 @@
   .mind-history-heading { gap: 8px; }
   .mind-chart-legend { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
   .mind-line-chart { min-width: 0; }
+  .mind-journal-dialog { padding: 18px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Award, Heart, Hexagon, Moon, Shield, Sparkles, Sun, Target } from 'lucide-react'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
-import { getAnalysis, listEntries } from '../api/client'
-import { localDateKey } from '../data/format'
 import { getRewards } from '../api/client'
 import { useLanguage } from '../app/LanguageContext'
 
@@ -71,12 +69,13 @@ export default function MissionChallengesPage({ onNotify }) {
   const { language, tr } = useLanguage()
   const badgeName = (badge) => language === 'en' ? BADGE_EN[badge.code]?.name || badge.name : badge.name
   const [rewards, setRewards] = useState(EMPTY_REWARDS)
+  const [rewardsLoading, setRewardsLoading] = useState(true)
   const [selectedCode, setSelectedCode] = useState('first_contact')
 
   useEffect(() => {
     getRewards().then(setRewards).catch(() => {
       // El catálogo bloqueado sigue visible si el backend aún no fue reiniciado.
-    })
+    }).finally(() => setRewardsLoading(false))
   }, [])
 
   const badges = rewards?.badges || []
@@ -96,15 +95,15 @@ export default function MissionChallengesPage({ onNotify }) {
 
       <Panel className="challenges-hero-card">
         <div className="hero-astronaut-avatar-wrap">
-          <img src="/assets/astronauta.png" alt={tr('Astronauta', 'Astronaut')} className="hero-astronaut-img" />
+          <img src="/assets/astronauta.png" alt={tr('Astronauta', 'Astronaut')} className="hero-astronaut-img" loading="lazy" decoding="async" />
         </div>
         <div className="hero-level-info">
           <span className="hero-kicker">{tr('PROGRESO PERSONAL', 'PERSONAL PROGRESS')}</span>
-          <h2>{rewards?.xp || 0} XP</h2>
+          <h2>{rewardsLoading ? <Skeleton w={110} h={42} /> : `${rewards?.xp || 0} XP`}</h2>
           <p className="hero-desc">{tr('Los puntos reconocen acciones voluntarias, no cómo te sentiste.', 'Points recognize voluntary actions, not how you felt.')}</p>
           <div className="hero-progress-container">
             <div className="hero-xp-track"><div className="hero-xp-bar-fill" style={{ width: `${xpProgress}%` }} /></div>
-            <div className="hero-xp-meta"><span>{badges.filter((badge) => badge.unlocked).length} {tr('insignias', 'badges')}</span><span>{mission?.complete ? tr('Misión semanal completa', 'Weekly mission complete') : tr('Misión semanal en progreso', 'Weekly mission in progress')}</span></div>
+            <div className="hero-xp-meta"><span>{rewardsLoading ? <Skeleton w={72} h={12} /> : `${badges.filter((badge) => badge.unlocked).length} ${tr('insignias', 'badges')}`}</span><span>{rewardsLoading ? <Skeleton w={150} h={12} /> : mission?.complete ? tr('Misión semanal completa', 'Weekly mission complete') : tr('Misión semanal en progreso', 'Weekly mission in progress')}</span></div>
           </div>
         </div>
         <div className="hero-xp-ring-wrap">
@@ -112,7 +111,7 @@ export default function MissionChallengesPage({ onNotify }) {
             <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255, 214, 90, 0.15)" strokeWidth="7" />
             <circle cx="50" cy="50" r="40" fill="none" stroke="#ffd25a" strokeWidth="7" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - xpProgress / 100)} strokeLinecap="round" transform="rotate(-90 50 50)" className="gold-ring-glow" />
           </svg>
-          <div className="hero-ring-inner"><strong>{rewards?.xp || 0}</strong><small>XP</small></div>
+          <div className="hero-ring-inner"><strong>{rewardsLoading ? <Skeleton w={34} h={30} /> : rewards?.xp || 0}</strong><small>XP</small></div>
         </div>
       </Panel>
 
@@ -127,7 +126,11 @@ export default function MissionChallengesPage({ onNotify }) {
 
         <p className="mission-helper">{tr('Es opcional y se renueva cada semana. No exige diario ni valores específicos de salud.', 'Optional and renewed weekly. No journal or specific health values required.')}</p>
         <div className="weekly-metrics-grid mission-conditions-grid">
-          {(mission?.conditions || []).map((condition) => (
+          {rewardsLoading ? (
+            <SkeletonGroup label={tr('Cargando progreso semanal…', 'Loading weekly progress…')} className="weekly-skeleton">
+              {[0, 1].map((index) => <div key={index} style={{ display: 'grid', gap: 8 }}><Skeleton w="70%" h={12} /><Skeleton w="100%" h={8} radius="6px" /></div>)}
+            </SkeletonGroup>
+          ) : (mission?.conditions || []).map((condition) => (
             <div className={`weekly-metric-item mission-condition ${condition.complete ? 'is-complete' : ''}`} key={condition.code}>
               <div className="metric-header-row"><span>{language === 'en' ? (condition.code === 'check_in' ? 'Complete a check-in' : 'Take a voluntary break') : condition.label}</span><strong>{condition.complete ? tr('Listo', 'Done') : tr('Pendiente', 'Pending')}</strong></div>
               <div className="metric-track"><div className="metric-bar-fill" style={{ width: condition.complete ? '100%' : '0%' }} /></div>
@@ -140,7 +143,11 @@ export default function MissionChallengesPage({ onNotify }) {
       <Panel className="challenges-badges-collection-card">
         <span className="section-title">{tr('COLECCIÓN DE INSIGNIAS · LOGROS ÚNICOS', 'BADGE COLLECTION · ONE-TIME ACHIEVEMENTS')}</span>
         <div className="badges-hex-row">
-          {badges.map((badge) => (
+          {rewardsLoading ? (
+            <SkeletonGroup label={tr('Cargando insignias…', 'Loading badges…')}>
+              <Skeleton w="100%" h={92} radius="12px" />
+            </SkeletonGroup>
+          ) : badges.map((badge) => (
             <button
               key={badge.code}
               className={`badge-item-wrap ${badge.unlocked ? 'badge--gold' : 'badge--blue'} ${selectedCode === badge.code ? 'is-selected' : ''}`}

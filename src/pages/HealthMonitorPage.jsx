@@ -236,6 +236,7 @@ export default function HealthMonitorPage({ onNotify, onOpenVitals }) {
           <p className="hm-record-copy">
             {tr('Registra lecturas reales de tus instrumentos, síntomas o contexto. Puedes escribir, dictar en vivo o enviar una nota de voz: todo se revisa y se confirma antes de guardarse.', 'Record real readings, symptoms or context. You can type, dictate live or send a voice note; everything is reviewed and confirmed before saving.')}
           </p>
+          <img className="hm-record-illustration" src="/assets/registro.png" alt="" aria-hidden="true" loading="lazy" decoding="async" />
           <button className="primary-button hm-save-button" type="button" onClick={() => onOpenVitals?.()}>
             {tr('Abrir registro', 'Open record form')}
           </button>

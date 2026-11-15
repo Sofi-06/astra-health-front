@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Activity, BarChart3, Bell, CalendarDays, Check, ChevronDown, Edit3,
-  Heart, LockKeyhole, Mic, MicOff, NotebookPen, Pause, Play, Sparkles, Square, Trash2, Volume2, VolumeX,
+  Heart, History, LockKeyhole, Mic, MicOff, NotebookPen, Pause, Play, Sparkles, Square, Trash2, Volume2, VolumeX, X,
 } from 'lucide-react'
 import Panel from '../components/ui/Panel'
 import {
@@ -32,6 +32,47 @@ const todayKey = () => localDateKey(new Date().toISOString())
 const localDateTimeValue = (iso) => {
   const value = new Date(iso)
   return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+}
+
+function JournalHistoryDialog({ entries, language, tr, onClose, onEdit, onDelete }) {
+  const dialogRef = useRef(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    document.documentElement.classList.add('mind-dialog-open')
+    if (dialog && !dialog.open) dialog.showModal()
+    return () => document.documentElement.classList.remove('mind-dialog-open')
+  }, [])
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="mind-journal-dialog"
+      aria-labelledby="mind-journal-history-title"
+      onClose={onClose}
+      onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close() }}
+    >
+      <div className="mind-journal-dialog__heading">
+        <div>
+          <span className="mind-kicker"><History aria-hidden="true" /> {tr('DIARIO PRIVADO', 'PRIVATE JOURNAL')}</span>
+          <h2 id="mind-journal-history-title">{tr('Historial de entradas', 'Entry history')}</h2>
+          <p>{tr('Solo tú puedes consultar y modificar estas entradas.', 'Only you can view and change these entries.')}</p>
+        </div>
+        <button className="mind-journal-dialog__close" type="button" onClick={() => dialogRef.current?.close()} aria-label={tr('Cerrar historial', 'Close history')}><X size={21} /></button>
+      </div>
+      <div className="mind-journal-dialog__list">
+        {entries.length ? entries.map((entry) => <article key={entry.id}>
+          <time dateTime={entry.date}><CalendarDays size={15} aria-hidden="true" /> {new Date(`${entry.date}T12:00:00`).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO')}</time>
+          <p>{entry.text}</p>
+          <div className="mind-journal-dialog__actions">
+            <button onClick={() => onEdit(entry)} type="button"><Edit3 size={14} /> {tr('Editar', 'Edit')}</button>
+            <button onClick={() => onDelete(entry.id)} type="button"><Trash2 size={14} /> {tr('Borrar', 'Delete')}</button>
+          </div>
+        </article>) : <p className="mind-journal-dialog__empty">{tr('Todavía no hay entradas guardadas.', 'No saved entries yet.')}</p>}
+      </div>
+      <p className="mind-journal-dialog__note">{tr('El diario no se usa para XP, diagnósticos ni informes.', 'Journal text is not used for XP, diagnoses or reports.')}</p>
+    </dialog>
+  )
 }
 
 function createMeditationAudio() {
@@ -121,6 +162,8 @@ export default function MindTrackerPage({ onNotify }) {
   const [checkIn, setCheckIn] = useState(emptyCheckIn)
   const [journalEntries, setJournalEntries] = useState([])
   const [journalForm, setJournalForm] = useState({ id: null, entry_date: todayKey(), text: '' })
+  const [journalHistoryOpen, setJournalHistoryOpen] = useState(false)
+  const journalTextRef = useRef(null)
   const [reminders, setReminders] = useState([])
   const [reminderForm, setReminderForm] = useState({ id: null, kind: 'pause', title: '', remind_at: '' })
   const [reminderOpen, setReminderOpen] = useState(false)
@@ -285,6 +328,12 @@ export default function MindTrackerPage({ onNotify }) {
   }
 
   const resetJournal = () => { stopDictation(); setJournalForm({ id: null, entry_date: todayKey(), text: '' }) }
+  const editJournal = (entry) => {
+    stopDictation()
+    setJournalForm({ id: entry.id, entry_date: entry.date, text: entry.text })
+    setJournalHistoryOpen(false)
+    window.requestAnimationFrame(() => journalTextRef.current?.focus())
+  }
   const handleSaveJournal = async () => {
     if (dictating) stopDictation()
     if (!journalForm.text.trim()) return onNotify?.(tr('Escribe algo antes de guardar la entrada.', 'Write something before saving the entry.'))
@@ -393,13 +442,14 @@ export default function MindTrackerPage({ onNotify }) {
             <label className="sr-only" htmlFor="mind-journal-date">{tr('Fecha de la entrada', 'Entry date')}</label>
             <input id="mind-journal-date" type="date" max={todayKey()} value={journalForm.entry_date} onChange={(event) => setJournalForm((form) => ({ ...form, entry_date: event.target.value }))} />
             <label className="sr-only" htmlFor="mind-journal-text">{tr('Entrada privada', 'Private entry')}</label>
-            <textarea id="mind-journal-text" value={journalForm.text} onChange={(event) => setJournalForm((form) => ({ ...form, text: event.target.value }))} placeholder={tr('Escribe una entrada privada…', 'Write a private entry…')} readOnly={dictating} />
+            <textarea ref={journalTextRef} id="mind-journal-text" value={journalForm.text} onChange={(event) => setJournalForm((form) => ({ ...form, text: event.target.value }))} placeholder={tr('Escribe una entrada privada…', 'Write a private entry…')} readOnly={dictating} />
             <div className="mind-dictation-row"><button className={dictating ? 'is-listening' : ''} type="button" onClick={toggleDictation} disabled={!speechSupported}>{dictating ? <MicOff size={15} /> : <Mic size={15} />}{dictating ? tr('Detener dictado', 'Stop dictation') : tr('Dictar en vivo', 'Dictate live')}</button><small>{dictationMessage || (speechSupported ? tr('El navegador puede procesar tu voz mediante un servicio externo. Revisa el texto antes de guardarlo.', 'Your browser may process speech through an external service. Review the text before saving.') : tr('El dictado en vivo no está disponible en este navegador.', 'Live dictation is unavailable in this browser.'))}</small></div>
-            <div className="mind-form-actions"><button type="button" onClick={() => { stopDictation(); setJournalForm((form) => ({ ...form, text: tr('Contenido ficticio para probar el diario en esta demo.', 'Fictional content to try the journal in this demo.') })) }}><Sparkles size={14} /> {tr('Usar ejemplo ficticio', 'Use fictional example')}</button>{journalForm.id && <button type="button" onClick={resetJournal}>{tr('Cancelar', 'Cancel')}</button>}<button className="primary-button" type="button" onClick={handleSaveJournal}>{journalForm.id ? tr('Actualizar', 'Update') : tr('Guardar', 'Save')}</button></div>
+            <div className="mind-form-actions">{journalForm.id && <button type="button" onClick={resetJournal}>{tr('Cancelar', 'Cancel')}</button>}<button className="primary-button" type="button" onClick={handleSaveJournal}>{journalForm.id ? tr('Actualizar', 'Update') : tr('Guardar', 'Save')}</button></div>
           </div>
-          <div className="mind-journal-list">
-            {journalEntries.length ? journalEntries.map((entry) => <article key={entry.id}><time>{new Date(`${entry.date}T12:00:00`).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO')}</time><p>{entry.text}</p><div><button onClick={() => setJournalForm({ id: entry.id, entry_date: entry.date, text: entry.text })} type="button"><Edit3 size={12} /> {tr('Editar', 'Edit')}</button><button onClick={() => handleDeleteJournal(entry.id)} type="button"><Trash2 size={12} /> {tr('Borrar', 'Delete')}</button></div></article>) : <p className="mind-empty">{tr('Todavía no hay entradas. El diario no se usa para XP, diagnósticos ni informes.', 'No entries yet. Journal text is not used for XP, diagnoses or reports.')}</p>}
-          </div>
+          <button className="mind-journal-history-button" type="button" onClick={() => setJournalHistoryOpen(true)} aria-haspopup="dialog">
+            <span><History size={18} aria-hidden="true" /><span><strong>{tr('Ver historial del diario', 'View journal history')}</strong><small>{journalEntries.length ? tr('Entradas privadas guardadas', 'Saved private entries') : tr('Tus entradas aparecerán aquí', 'Your entries will appear here')}</small></span></span>
+            <span className="mind-journal-history-count">{journalEntries.length}</span>
+          </button>
         </Panel>
       </div>
 
@@ -423,6 +473,7 @@ export default function MindTrackerPage({ onNotify }) {
           <button className="mind-support-button" disabled type="button">{tr('Apoyo · No disponible en esta demo', 'Support · Unavailable in this demo')}</button>
         </Panel>
       </div>
+      {journalHistoryOpen && <JournalHistoryDialog entries={journalEntries} language={language} tr={tr} onClose={() => setJournalHistoryOpen(false)} onEdit={editJournal} onDelete={handleDeleteJournal} />}
     </section>
   )
 }

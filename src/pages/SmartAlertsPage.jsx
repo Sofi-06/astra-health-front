@@ -293,6 +293,9 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
           <Panel className="alerts-feed-panel">
             <span className="section-title">{tr('ALERTAS', 'NOTICES')}</span>
             <div className="alerts-items-feed">
+              {!loaded && <SkeletonGroup label={tr('Cargando avisos…', 'Loading notices…')}>
+                {[0, 1, 2].map((index) => <Skeleton key={index} w="100%" h={52} radius="12px" />)}
+              </SkeletonGroup>}
               {loaded && !loadError && alerts.length === 0 && (
                 <p className="chart-empty">{tr('Todos los indicadores tienen registros recientes y sin cambios en la ventana.', 'All metrics have recent records with no changes in this period.')}</p>
               )}
@@ -322,7 +325,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
 
             <span className="section-title section-title--resolved">{tr('RESUELTAS', 'REVIEWED')}</span>
             <div className="resolved-items-feed">
-              {resolved.length === 0 && <p className="chart-empty">{tr('Ninguna avisada como revisada todavía.', 'No notices marked as reviewed yet.')}</p>}
+              {loaded && resolved.length === 0 && <p className="chart-empty">{tr('Ninguna avisada como revisada todavía.', 'No notices marked as reviewed yet.')}</p>}
               {resolved.map((item) => (
                 <div key={item.id} className="resolved-row">
                   <span>{item.title}</span>
@@ -336,10 +339,16 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
         {/* Columna Derecha: Detalle de la Alerta Seleccionada */}
         <div className="alerts-detail-column">
           <Panel className="alert-detail-panel">
-            {!currentAlert && !loaded && <p className="chart-empty">{tr('Cargando los registros…', 'Loading records…')}</p>}
+            {!loaded && <SkeletonGroup label={tr('Cargando detalle del aviso…', 'Loading notice details…')}>
+              <Skeleton w="30%" h={20} radius="12px" />
+              <Skeleton w="70%" h={26} />
+              <Skeleton w="100%" h={140} />
+              <Skeleton w="90%" h={12} />
+              <Skeleton w="75%" h={12} />
+            </SkeletonGroup>}
             {!currentAlert && loaded && loadError && <div className="alert-load-state"><p>{tr('No se pudieron consultar los registros. Comprueba que el backend esté funcionando.', 'Could not retrieve records. Check that the backend is running.')}</p><button className="secondary-pill-btn" onClick={() => setRetryKey((value) => value + 1)} type="button">{tr('Reintentar', 'Retry')}</button></div>}
             {!currentAlert && loaded && !loadError && <p className="chart-empty">{tr('No hay avisos basados en tus registros para mostrar.', 'No record-based notices to show.')}</p>}
-            {currentAlert && (
+            {loaded && currentAlert && (
               <>
                 <div className="detail-header-row">
                   <div>

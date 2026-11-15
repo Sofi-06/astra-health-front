@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey } from '../data/format'
 import { useLanguage } from '../app/LanguageContext'
@@ -85,9 +86,11 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
   const [entriesError, setEntriesError] = useState(false)
   const [entriesLoading, setEntriesLoading] = useState(true)
   const [studies, setStudies] = useState([])
+  const [studiesLoading, setStudiesLoading] = useState(true)
   const [selectedCode, setSelectedCode] = useState('sleep')
   const [range, setRange] = useState(7)
   const [analysis, setAnalysis] = useState(null)
+  const [analysisLoading, setAnalysisLoading] = useState(true)
   const [busyExport, setBusyExport] = useState(false)
 
   useEffect(() => {
@@ -96,13 +99,16 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
       .catch((error) => { if (!cancelled) { setEntriesError(true); onNotify?.(error.message) } })
       .finally(() => { if (!cancelled) setEntriesLoading(false) })
     listResearchStudies().then((data) => { if (!cancelled) setStudies(data?.studies || []) }).catch(() => {})
+      .finally(() => { if (!cancelled) setStudiesLoading(false) })
     return () => { cancelled = true }
   }, [])
 
   useEffect(() => {
     let cancelled = false
     setAnalysis(null)
+    setAnalysisLoading(true)
     getAnalysis(selectedCode, range).then((result) => { if (!cancelled) setAnalysis(result) }).catch(() => {})
+      .finally(() => { if (!cancelled) setAnalysisLoading(false) })
     return () => { cancelled = true }
   }, [selectedCode, range])
 
@@ -134,6 +140,17 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
     finally { setBusyExport(false) }
   }
 
+  if (entriesLoading) return (
+    <div className="space-insights-page" aria-label={tr('Salud en el espacio', 'Space Health Insights')}>
+      <header className="shi-header"><div><h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1><p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p></div></header>
+      <SkeletonGroup label={tr('Cargando indicadores y gráficas…', 'Loading metrics and charts…')}>
+        <div className="shi-metrics">{METRICS.map((metric) => <Panel key={metric.code} className="shi-metric"><Skeleton w="55%" h={12} /><Skeleton w="42%" h={26} /><Skeleton w="75%" h={11} /></Panel>)}</div>
+        <Panel className="shi-chart-panel"><Skeleton w="42%" h={24} /><Skeleton w="100%" h={205} /><Skeleton w="60%" h={12} /></Panel>
+        <div className="shi-bottom-grid"><Panel className="shi-info-panel"><Skeleton w="48%" h={18} /><Skeleton w="100%" h={12} /><Skeleton w="90%" h={12} /></Panel><Panel className="shi-research-panel"><Skeleton w="55%" h={18} />{[0, 1].map((index) => <Skeleton key={index} w="100%" h={44} radius="10px" />)}</Panel></div>
+      </SkeletonGroup>
+    </div>
+  )
+
   return <div className="space-insights-page" aria-label={tr('Salud en el espacio', 'Space Health Insights')}>
     <header className="shi-header"><div><h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1><p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p></div><div className="shi-range" role="group" aria-label={tr('Período', 'Period')}>{[7, 14, 30].map((daysCount) => <button key={daysCount} type="button" className={range === daysCount ? 'is-active' : ''} onClick={() => setRange(daysCount)} aria-pressed={range === daysCount}>{daysCount} {tr('días', 'days')}</button>)}</div></header>
     <div className="shi-guidance"><span>{tr('Cada tarjeta muestra tu último dato registrado dentro del período. Toca una tarjeta o una pestaña para cambiar la gráfica.', 'Each card shows your latest record within the period. Tap a card or tab to change the chart.')}</span><small>{tr('REGISTROS CONFIRMADOS', 'CONFIRMED RECORDS')}</small></div>
@@ -142,6 +159,6 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
       return <button key={metric.code} className={`shi-metric ${selectedCode === metric.code ? 'is-active' : ''}`} style={{ '--shi-accent': metric.color }} type="button" onClick={() => setSelectedCode(metric.code)} aria-pressed={selectedCode === metric.code}><span className="shi-metric-label"><i />{language === 'en' ? METRIC_EN[metric.code] : metric.label}</span><strong>{entry ? <>{formatValue(entry.candidate)} <small>{entry.candidate.unit}</small></> : '—'}</strong><span className="shi-metric-foot">{entriesError ? tr('No se pudieron cargar los registros', 'Could not load records') : entry ? `${tr('Registrado', 'Recorded')} ${formatWhen(entry.measured_at, language)}` : entriesLoading ? tr('Cargando…', 'Loading…') : tr('Sin registros en este período', 'No records in this period')}</span></button>
     })}</div>
     <Panel className="shi-chart-panel"><div className="shi-chart-top"><div className="shi-tabs" role="group" aria-label={tr('Indicador de la gráfica', 'Chart metric')}>{METRICS.map((metric) => <button type="button" key={metric.code} className={selectedCode === metric.code ? 'is-active' : ''} onClick={() => setSelectedCode(metric.code)} aria-pressed={selectedCode === metric.code}>{language === 'en' ? METRIC_EN[metric.code] : metric.label}</button>)}</div><small>{tr('Un dato = un punto · sin línea de tendencia inventada', 'One record = one point · no invented trend line')}</small></div>{entriesError ? <p className="shi-empty-plot">{tr('No se pudieron cargar tus registros. Comprueba la conexión con el backend.', 'Could not load your records. Check the backend connection.')}</p> : <InsightChart entries={visibleEntries} metric={selectedMetric} range={range} />}</Panel>
-    <div className="shi-bottom-grid"><Panel className="shi-info-panel"><h2>{tr('◆ SOBRE ESTE TEMA EN EL ESPACIO', '◆ ABOUT THIS TOPIC IN SPACE')}</h2>{analysis?.education ? <><p>{analysis.education.text}</p><small>{analysis.education.scope}</small></> : <p>{tr(`La información educativa para ${selectedMetric.label.toLowerCase()} no está disponible en este momento.`, `Educational information about ${METRIC_EN[selectedMetric.code].toLowerCase()} is unavailable right now.`)}</p>}{analysis?.cannot_conclude?.length > 0 && <p className="shi-limit">{tr(`Este resumen no determina ${analysis.cannot_conclude.join(', ').toLowerCase()}.`, 'This summary does not provide a clinical conclusion.')}</p>}<p className="shi-scope">{tr('Información general y educativa. No interpreta tus registros ni es una recomendación para ti.', 'General educational information. It does not interpret your records or make a personal recommendation.')}</p><button type="button" className="shi-export" onClick={handleExport} disabled={busyExport}>{busyExport ? tr('Descargando…', 'Downloading…') : tr('Descargar mis datos JSON →', 'Download my data as JSON →')}</button></Panel><Panel className="shi-research-panel"><h2>{tr('◆ EXPLORAR INVESTIGACIÓN NASA · OSDR', '◆ EXPLORE NASA RESEARCH · OSDR')}</h2>{studies.length ? studies.slice(0, 3).map((study) => <div className="shi-study" key={study.accession}><span><strong>{study.title}</strong><small>{tr('Copia local del', 'Local copy from')} {study.retrieved_at ? formatDay(study.retrieved_at, language) : '—'}{study.stale ? tr(' · desactualizada', ' · outdated') : ''}</small></span>{study.api_url ? <a href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a> : <em>{study.accession}</em>}</div>) : <p>{tr('No hay estudios en la copia local.', 'No studies in the local copy.')}</p>}<p className="shi-scope">{tr('Investigación pública, separada de tus registros personales. No es un protocolo clínico.', 'Public research, separate from your personal records. Not a clinical protocol.')}</p></Panel></div>
+    <div className="shi-bottom-grid"><Panel className="shi-info-panel"><h2>{tr('◆ SOBRE ESTE TEMA EN EL ESPACIO', '◆ ABOUT THIS TOPIC IN SPACE')}</h2>{analysisLoading ? <SkeletonGroup label={tr('Cargando información educativa…', 'Loading educational information…')}><Skeleton w="100%" h={12} /><Skeleton w="90%" h={12} /><Skeleton w="75%" h={12} /></SkeletonGroup> : analysis?.education ? <><p>{analysis.education.text}</p><small>{analysis.education.scope}</small></> : <p>{tr(`La información educativa para ${selectedMetric.label.toLowerCase()} no está disponible en este momento.`, `Educational information about ${METRIC_EN[selectedMetric.code].toLowerCase()} is unavailable right now.`)}</p>}{analysis?.cannot_conclude?.length > 0 && <p className="shi-limit">{tr(`Este resumen no determina ${analysis.cannot_conclude.join(', ').toLowerCase()}.`, 'This summary does not provide a clinical conclusion.')}</p>}<p className="shi-scope">{tr('Información general y educativa. No interpreta tus registros ni es una recomendación para ti.', 'General educational information. It does not interpret your records or make a personal recommendation.')}</p><button type="button" className="shi-export" onClick={handleExport} disabled={busyExport}>{busyExport ? tr('Descargando…', 'Downloading…') : tr('Descargar mis datos JSON →', 'Download my data as JSON →')}</button></Panel><Panel className="shi-research-panel"><h2>{tr('◆ EXPLORAR INVESTIGACIÓN NASA · OSDR', '◆ EXPLORE NASA RESEARCH · OSDR')}</h2>{studiesLoading ? <SkeletonGroup label={tr('Cargando estudios…', 'Loading studies…')}>{[0, 1].map((index) => <Skeleton key={index} w="100%" h={44} radius="10px" />)}</SkeletonGroup> : studies.length ? studies.slice(0, 3).map((study) => <div className="shi-study" key={study.accession}><span><strong>{study.title}</strong><small>{tr('Copia local del', 'Local copy from')} {study.retrieved_at ? formatDay(study.retrieved_at, language) : '—'}{study.stale ? tr(' · desactualizada', ' · outdated') : ''}</small></span>{study.api_url ? <a href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a> : <em>{study.accession}</em>}</div>) : <p>{tr('No hay estudios en la copia local.', 'No studies in the local copy.')}</p>}<p className="shi-scope">{tr('Investigación pública, separada de tus registros personales. No es un protocolo clínico.', 'Public research, separate from your personal records. Not a clinical protocol.')}</p></Panel></div>
   </div>
 }

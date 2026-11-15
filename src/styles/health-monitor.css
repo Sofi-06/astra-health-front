@@ -4,6 +4,7 @@
   gap: 16px;
   margin-top: 4px;
   padding-bottom: 20px;
+  container-type: inline-size;
 }
 
 .hm-card-kicker {
@@ -172,7 +173,11 @@
 .hm-chart__grid { stroke: rgba(98, 163, 200, .14); stroke-width: 1; }
 .hm-chart__tick { fill: #7699af; font-size: 9px; font-family: var(--font); }
 
-.hm-record-card { height: 516px; min-height: 0; padding: 15px 20px; overflow: hidden; }
+.hm-record-card { display: flex; height: 516px; min-width: 0; min-height: 0; padding: 18px 20px; flex-direction: column; overflow: hidden; }
+.hm-record-copy { margin-bottom: 5px; }
+.hm-record-illustration { display: block; align-self: center; width: min(116%, 430px); min-height: 0; flex: 1 1 235px; margin: 4px auto 8px; object-fit: contain; filter: drop-shadow(0 0 22px rgba(37, 204, 247, .22)); }
+.hm-record-card .hm-save-button { width: 100%; min-height: 48px; margin-top: 0; flex: none; }
+.hm-record-hint { margin: 12px 0 0; }
 .hm-record-fields { margin-top: 10px; }
 .hm-form-row { min-height: 51px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid rgba(96, 155, 190, .17); }
 .hm-form-row > span:first-child { color: #8cb1c8; font-size: .7rem; }
@@ -230,4 +235,47 @@
   .hm-record-card { padding: 17px; }
   .hm-intensity > div { justify-content: space-between; }
   .hm-intensity button { width: 18%; }
+}
+
+/* El monitor vive junto al navbar: responde al ancho real de su panel, no solo al viewport. */
+@container (max-width: 1100px) {
+  .hm-detail-grid { grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); }
+  .hm-record-card {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, .85fr);
+    grid-template-areas:
+      "kicker illustration"
+      "copy illustration"
+      "button illustration"
+      "hint illustration";
+    column-gap: 28px;
+    height: auto;
+    min-height: 390px;
+    overflow: hidden;
+  }
+  .hm-record-card .hm-card-kicker { grid-area: kicker; align-self: end; }
+  .hm-record-copy { grid-area: copy; }
+  .hm-record-illustration { grid-area: illustration; width: min(115%, 480px); height: 100%; max-height: 350px; margin: auto; flex: none; }
+  .hm-record-card .hm-save-button { grid-area: button; align-self: end; }
+  .hm-record-hint { grid-area: hint; }
+}
+
+@container (max-width: 700px) {
+  .hm-detail-grid { grid-template-columns: 1fr; }
+  .hm-vitals-list { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, 120px); }
+  .hm-record-card {
+    display: flex;
+    grid-column: auto;
+    min-height: 610px;
+    padding: 20px;
+  }
+  .hm-record-illustration { width: min(120%, 470px); max-height: 300px; margin: 8px auto 14px; flex: 1 1 260px; }
+}
+
+@container (max-width: 480px) {
+  .hm-vitals-list { grid-template-columns: 1fr; grid-template-rows: repeat(4, 108px); }
+  .hm-record-card { min-height: 560px; padding: 17px; }
+  .hm-record-illustration { width: 112%; max-height: 255px; flex-basis: 220px; }
+  .hm-record-card .hm-save-button { min-height: 44px; }
 }

@@ -1,27 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { LogOut, Volume2, VolumeX } from 'lucide-react'
 import Sidebar from '../components/layout/Sidebar'
-import HealthMonitorPage from './HealthMonitorPage'
-import MindTrackerPage from './MindTrackerPage'
-import BodyExplorerPage from './BodyExplorerPage'
-import SpaceHealthInsightsPage from './SpaceHealthInsightsPage'
-import SmartAlertsPage from './SmartAlertsPage'
-import MissionChallengesPage from './MissionChallengesPage'
-import HealthAnalyticsPage from './HealthAnalyticsPage'
-import WellnessGuidePage from './WellnessGuidePage'
 import ProfileCard from '../components/dashboard/ProfileCard'
 import MetricCard from '../components/dashboard/MetricCard'
 import TasksPanel from '../components/dashboard/TasksPanel'
-import HumanVisualizer from '../components/dashboard/HumanVisualizer'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
 import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
-import VitalsModal from '../components/modals/VitalsModal'
 import AstraVoicePanel from '../components/voice/AstraVoicePanel'
 import useHealthData from '../hooks/useHealthData'
 import { recordWellnessAction, updateProfileImage } from '../api/client'
 import { localDateKey } from '../data/format'
 import LanguageSwitcher from '../components/ui/LanguageSwitcher'
+import PageSkeleton from '../components/ui/PageSkeleton'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { useLanguage } from '../app/LanguageContext'
+import '../styles/dashboard.css'
+import '../styles/health-monitor.css'
+import '../styles/mind-tracker.css'
+import '../styles/body-explorer.css'
+import '../styles/space-health-insights.css'
+import '../styles/smart-alerts.css'
+import '../styles/mission-challenges.css'
+import '../styles/health-analytics.css'
+import '../styles/wellness-guide.css'
+import '../styles/astra-voice.css'
+import '../styles/responsive.css'
+import '../styles/page-skeleton.css'
+
+const HealthMonitorPage = lazy(() => import('./HealthMonitorPage'))
+const MindTrackerPage = lazy(() => import('./MindTrackerPage'))
+const BodyExplorerPage = lazy(() => import('./BodyExplorerPage'))
+const SpaceHealthInsightsPage = lazy(() => import('./SpaceHealthInsightsPage'))
+const SmartAlertsPage = lazy(() => import('./SmartAlertsPage'))
+const MissionChallengesPage = lazy(() => import('./MissionChallengesPage'))
+const HealthAnalyticsPage = lazy(() => import('./HealthAnalyticsPage'))
+const WellnessGuidePage = lazy(() => import('./WellnessGuidePage'))
+const HumanVisualizer = lazy(() => import('../components/dashboard/HumanVisualizer'))
+const VitalsModal = lazy(() => import('../components/modals/VitalsModal'))
 
 const CARD_ORDER = [
   'heart_rate',
@@ -190,12 +205,14 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
 
       {/* Columna Derecha: Humano Holográfico 3D */}
       <div className="dashboard-visualizer-column">
-        <HumanVisualizer
-          isWaving={greetingSpeaking || greetingVisible}
-          onToggleGreeting={toggleGreeting}
-          greetingSpeaking={greetingSpeaking}
-          greetingRun={greetingRunCount}
-        />
+        <Suspense fallback={<SkeletonGroup label={tr('Cargando modelo…', 'Loading model…')} className="body-model-loading"><Skeleton w="min(42%, 200px)" h="68%" radius="42% 42% 22% 22%" /></SkeletonGroup>}>
+          <HumanVisualizer
+            isWaving={greetingSpeaking || greetingVisible}
+            onToggleGreeting={toggleGreeting}
+            greetingSpeaking={greetingSpeaking}
+            greetingRun={greetingRunCount}
+          />
+        </Suspense>
         {greetingVisible && (
           <div className={`dashboard-greeting ${greetingSpeaking ? 'is-speaking' : ''} ${typedGreeting.length < greetingText.length ? 'is-typing' : ''}`}>
             <div className="dashboard-greeting__halo" aria-hidden="true"><i /><i /><i /></div>
@@ -270,10 +287,12 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
           </div>
         </header>
 
-        {renderPage()}
+        <Suspense fallback={<PageSkeleton page={activePage} tr={tr} />}>
+          {renderPage()}
+        </Suspense>
       </div>
 
-      <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} />
+      {modalOpen && <Suspense fallback={null}><VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} /></Suspense>}
       <AstraVoicePanel onNotify={onNotify} onSaved={voiceSaved} />
     </main>
   )
