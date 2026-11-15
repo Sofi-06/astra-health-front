@@ -21,11 +21,13 @@ export const navItems = [
   { label: 'Health Analytics', icon: BarChart3 },
 ]
 
+// Pendientes de registro: se marcan solos cuando el indicador tiene un
+// registro confirmado con fecha de hoy (sin estados completados inventados).
 export const tasks = [
-  'Registrar presión arterial (diario)',
-  'Completar evaluación emocional',
-  'Realizar diagnóstico programado',
-  'Registrar horas de sueño',
+  { label: 'Registrar pulso', metric: 'heart_rate' },
+  { label: 'Registrar presión arterial', metric: 'blood_pressure' },
+  { label: 'Registrar horas de sueño', metric: 'sleep' },
+  { label: 'Registrar temperatura', metric: 'temperature' },
 ]
 
 export const ActivityIcon = Activity
