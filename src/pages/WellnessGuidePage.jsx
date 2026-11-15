@@ -16,6 +16,7 @@ import {
 import Panel from '../components/ui/Panel'
 import { getGuidance } from '../api/client'
 import { useLanguage } from '../app/LanguageContext'
+import { localizeWellnessGuidance } from '../data/wellnessGuideEnglish'
 
 // Contenido 100% servido por el backend (curado, con fuentes y fechas de
 // revisión). Esta página solo lo presenta; no añade criterios propios.
@@ -349,11 +350,16 @@ export default function WellnessGuidePage({ onNotify }) {
       })
   }, [onNotify, tr])
 
+  const displayedGuidance = useMemo(() => {
+    if (!guidance || language !== 'en') return guidance
+    return localizeWellnessGuidance(guidance)
+  }, [guidance, language])
+
   const sources = useMemo(() => {
     const map = {}
-    for (const src of guidance?.sources ?? []) map[src.id] = src
+    for (const src of displayedGuidance?.sources ?? []) map[src.id] = src
     return map
-  }, [guidance])
+  }, [displayedGuidance])
 
   if (error) return <Panel className="guide-error">{error}</Panel>
   if (!guidance) return <Panel className="guide-loading">{tr('Cargando orientación de bienestar…', 'Loading wellness guide…')}</Panel>
@@ -363,7 +369,7 @@ export default function WellnessGuidePage({ onNotify }) {
       <header className="page-header-pro guide-header">
         <h1>{tr('Bienestar y prevención', 'Wellness and prevention')}</h1>
         <p>{tr(
-          guidance.intro,
+          displayedGuidance.intro,
           'Wellness guidance curated by the team using public sources from NASA, JAXA, WHO, and NIH health references. It is educational and general: it is not validated medical advice, does not interpret your readings, and does not replace the mission medical team.',
         )}</p>
       </header>
@@ -391,7 +397,7 @@ export default function WellnessGuidePage({ onNotify }) {
       {selectedSection && (
         <GuideSectionDialog
           section={selectedSection}
-          guidance={guidance}
+          guidance={displayedGuidance}
           sources={sources}
           activeCode={activeCode}
           onActiveCodeChange={setActiveCode}

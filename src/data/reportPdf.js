@@ -1,4 +1,5 @@
 import { formatValue, localDateKey, METRIC_LABELS } from './format'
+import { jsPDF } from 'jspdf'
 
 const CHART_METRICS = [
   { code: 'heart_rate', color: [34, 211, 238] },
@@ -9,6 +10,16 @@ const CHART_METRICS = [
   { code: 'sleep', color: [56, 189, 248] },
   { code: 'muscle_mass', color: [72, 229, 237] },
 ]
+
+const METRIC_LABELS_EN = {
+  heart_rate: 'Heart rate',
+  blood_pressure: 'Blood pressure',
+  oxygen_saturation: 'Oxygen saturation',
+  temperature: 'Temperature',
+  glucose: 'Glucose',
+  sleep: 'Reported sleep',
+  muscle_mass: 'Muscles',
+}
 
 const clean = (text) => Array.from(String(text ?? ''))
   .filter((ch) => { const c = ch.charCodeAt(0); return c === 10 || (c >= 32 && c <= 126) || (c >= 161 && c <= 255) })
@@ -41,7 +52,6 @@ function buildBins(range, now) {
 }
 
 export async function downloadReportPdf({ entries, range, language = 'es', userName = '' }) {
-  const { jsPDF } = await import('jspdf')
   const en = language === 'en'
   const tr = (es, enText) => clean(en ? enText : es)
   const now = Date.now()
@@ -52,6 +62,12 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
   const symptoms = inPeriod.filter((e) => e.candidate?.kind === 'symptom')
     .sort((a, b) => new Date(b.measured_at) - new Date(a.measured_at))
   const measurements = inPeriod.filter((e) => e.candidate?.kind === 'measurement')
+  const latestByMetric = new Map()
+  measurements.forEach((entry) => {
+    const code = entry.candidate.metric
+    if (!latestByMetric.has(code) || entry.measured_at > latestByMetric.get(code).measured_at) latestByMetric.set(code, entry)
+  })
+  const latestMeasurements = CHART_METRICS.map(({ code, color }) => ({ code, color, entry: latestByMetric.get(code) })).filter((item) => item.entry)
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const W = 210
@@ -93,6 +109,56 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
   ))
   y += 3
 
+  // Tarjetas con la lectura más reciente de cada indicador.
+  heading(tr('Métricas actuales', 'Current metrics'))
+  if (latestMeasurements.length === 0) {
+    paragraph(tr('No hay métricas confirmadas en este periodo.', 'No confirmed metrics in this period.'))
+  } else {
+    const columns = 3
+    const gap = 4
+    const cardW = (CW - gap * (columns - 1)) / columns
+    const cardH = 25
+    const rows = Math.ceil(latestMeasurements.length / columns)
+    ensure(rows * (cardH + gap) + 2)
+    latestMeasurements.forEach(({ code, color, entry }, index) => {
+      const col = index % columns
+      const row = Math.floor(index / columns)
+      const x = M + col * (cardW + gap)
+      const top = y + row * (cardH + gap)
+      const label = en ? METRIC_LABELS_EN[code] || code : METRIC_LABELS[code] || code
+      doc.setFillColor(246, 250, 253)
+      doc.setDrawColor(...color)
+      doc.setLineWidth(0.45)
+      doc.roundedRect(x, top, cardW, cardH, 2.2, 2.2, 'FD')
+      doc.setFillColor(...color)
+      doc.roundedRect(x + 4, top + 4, 3, 3, 0.7, 0.7, 'F')
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(55, 75, 90)
+      doc.text(clean(label).toUpperCase(), x + 9, top + 7)
+      doc.setFontSize(14); doc.setTextColor(...color)
+      doc.text(`${clean(formatValue(entry.candidate))} ${clean(entry.candidate.unit)}`, x + 4, top + 15)
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.8); doc.setTextColor(110, 125, 135)
+      doc.text(`${tr('Registrado', 'Recorded')} ${new Date(entry.measured_at).toLocaleString(en ? 'en-US' : 'es-CO', { dateStyle: 'short', timeStyle: 'short' })}`, x + 4, top + 21)
+    })
+    y += rows * (cardH + gap) + 1
+  }
+  y += 3
+
+  heading(tr('Recomendaciones y seguimiento', 'Recommendations and follow-up'))
+  const recommendations = latestMeasurements.filter(({ entry }) => entry.recommendation?.text || entry.recommendation?.text_en)
+  if (recommendations.length === 0) {
+    paragraph(tr('Continúa registrando tus mediciones con su contexto para mantener un historial útil.', 'Continue recording measurements with their context to maintain a useful history.'))
+  } else {
+    recommendations.forEach(({ code, entry }) => {
+      const label = en ? METRIC_LABELS_EN[code] || code : METRIC_LABELS[code] || code
+      const text = en ? entry.recommendation.text_en || entry.recommendation.text : entry.recommendation.text
+      const color = entry.recommendation.out_of_range ? [180, 72, 32] : [35, 95, 120]
+      paragraph(`${label}: ${text}`, 8.8, color)
+      y += 1.5
+    })
+  }
+  paragraph(tr('Orientación general basada en reglas visibles; no es un diagnóstico.', 'General guidance based on visible rules; it is not a diagnosis.'), 7.8, [120, 120, 120])
+  y += 4
+
   // Historial de síntomas: gráfica de barras + listado
   heading(tr('Historial de síntomas', 'Symptom history'))
   const bins = buildBins(range, now)
@@ -101,35 +167,34 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
     const bin = bins.find((b) => t >= b.start && t < b.end) || (t >= bins.at(-1).end ? bins.at(-1) : null)
     if (bin) bin.count += 1
   })
-  const chartH = 42
-  ensure(chartH + 12)
   const cx = M + 8
   const cw = CW - 8
-  const cy = y + 2
-  const maxCount = Math.max(1, ...bins.map((b) => b.count))
-  doc.setDrawColor(215, 220, 225); doc.setLineWidth(0.2)
-  doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal')
-  ;[0, 0.5, 1].forEach((f) => {
-    const gy = cy + chartH - f * chartH
-    doc.line(cx, gy, cx + cw, gy)
-    doc.text(String(Math.round(maxCount * f * 10) / 10), cx - 2, gy + 1, { align: 'right' })
-  })
-  const slot = cw / bins.length
-  const labelEvery = Math.ceil(bins.length / 8)
-  bins.forEach((b, i) => {
-    const bh = (b.count / maxCount) * chartH
-    if (b.count > 0) { doc.setFillColor(240, 120, 60); doc.rect(cx + i * slot + slot * 0.15, cy + chartH - bh, slot * 0.7, bh, 'F') }
-    if (i % labelEvery === 0 || i === bins.length - 1) doc.text(b.label, cx + i * slot + slot / 2, cy + chartH + 4, { align: 'center' })
-  })
-  y = cy + chartH + 9
-  paragraph(range === 1
-    ? tr('Síntomas declarados por hora en las últimas 24 horas.', 'Symptoms reported per hour over the last 24 hours.')
-    : tr('Síntomas declarados por día.', 'Symptoms reported per day.'), 8, [120, 120, 120])
-  y += 2
-
   if (symptoms.length === 0) {
-    paragraph(tr('No hay síntomas registrados en este periodo.', 'No symptoms recorded in this period.'))
+    paragraph(tr('No hay síntomas registrados en este periodo; por eso no se dibuja una gráfica vacía.', 'No symptoms were recorded in this period, so an empty chart is not displayed.'))
   } else {
+    const chartH = 42
+    ensure(chartH + 12)
+    const cy = y + 2
+    const maxCount = Math.max(1, ...bins.map((b) => b.count))
+    doc.setDrawColor(215, 220, 225); doc.setLineWidth(0.2)
+    doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.setFont('helvetica', 'normal')
+    ;[0, 0.5, 1].forEach((f) => {
+      const gy = cy + chartH - f * chartH
+      doc.line(cx, gy, cx + cw, gy)
+      doc.text(String(Math.round(maxCount * f * 10) / 10), cx - 2, gy + 1, { align: 'right' })
+    })
+    const slot = cw / bins.length
+    const labelEvery = Math.ceil(bins.length / 8)
+    bins.forEach((b, i) => {
+      const bh = (b.count / maxCount) * chartH
+      if (b.count > 0) { doc.setFillColor(240, 120, 60); doc.rect(cx + i * slot + slot * 0.15, cy + chartH - bh, slot * 0.7, bh, 'F') }
+      if (i % labelEvery === 0 || i === bins.length - 1) doc.text(b.label, cx + i * slot + slot / 2, cy + chartH + 4, { align: 'center' })
+    })
+    y = cy + chartH + 9
+    paragraph(range === 1
+      ? tr('Síntomas declarados por hora en las últimas 24 horas.', 'Symptoms reported per hour over the last 24 hours.')
+      : tr('Síntomas declarados por día.', 'Symptoms reported per day.'), 8, [120, 120, 120])
+    y += 2
     symptoms.slice(0, 40).forEach((e) => {
       ensure(10)
       doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(14, 80, 120)
@@ -145,10 +210,12 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
 
   // Gráficas de indicadores
   heading(range === 1 ? tr('Seguimiento de 24 horas por indicador', '24-hour tracking by metric') : tr('Evolución por indicador', 'Trend by metric'))
-  CHART_METRICS.forEach(({ code, color }) => {
+  const metricsWithData = CHART_METRICS.filter(({ code }) => measurements.some((entry) => entry.candidate.metric === code))
+  if (metricsWithData.length === 0) paragraph(tr('No hay métricas para graficar en este periodo.', 'There are no metrics to chart in this period.'))
+  metricsWithData.forEach(({ code, color }) => {
     const rows = measurements.filter((e) => e.candidate.metric === code)
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
-    const label = clean(METRIC_LABELS[code] || code)
+    const label = clean(en ? METRIC_LABELS_EN[code] || code : METRIC_LABELS[code] || code)
     const unit = rows.length ? [...rows.reduce((m, e) => m.set(e.candidate.unit, (m.get(e.candidate.unit) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1])[0][0] : ''
     const pts = rows.filter((e) => e.candidate.unit === unit).map((e) => ({ t: new Date(e.measured_at).getTime(), v: Number(e.candidate.values[0]) }))
     const h = 30
@@ -194,7 +261,8 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
   if (flagged.length) {
     heading(tr('Valores fuera del rango de referencia', 'Values outside the reference range'))
     flagged.forEach((e) => {
-      paragraph(`${METRIC_LABELS[e.candidate.metric]}: ${formatValue(e.candidate)} ${e.candidate.unit}${e.recommendation.reason ? ` (${en ? e.recommendation.reason_en || e.recommendation.reason : e.recommendation.reason})` : ''}`, 9.5, [190, 80, 20])
+      const label = en ? METRIC_LABELS_EN[e.candidate.metric] || e.candidate.metric : METRIC_LABELS[e.candidate.metric] || e.candidate.metric
+      paragraph(`${label}: ${formatValue(e.candidate)} ${e.candidate.unit}${e.recommendation.reason ? ` (${en ? e.recommendation.reason_en || e.recommendation.reason : e.recommendation.reason})` : ''}`, 9.5, [190, 80, 20])
       paragraph(en && e.recommendation.text_en ? e.recommendation.text_en : e.recommendation.text, 9)
       y += 1.5
     })

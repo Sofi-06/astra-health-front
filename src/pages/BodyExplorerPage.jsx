@@ -2,12 +2,13 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
-import { Activity, Brain, CircleDot, Heart, Plus, UserRound, Waves } from 'lucide-react'
+import { Activity, Brain, CircleDot, FileDown, Heart, Plus, UserRound, Waves } from 'lucide-react'
 import * as THREE from 'three'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { listEntries, recordWellnessAction } from '../api/client'
 import { formatValue, formatWhen, localDateKey } from '../data/format'
+import { downloadReportPdf } from '../data/reportPdf'
 import { useLanguage } from '../app/LanguageContext'
 
 const SpaceHealthInsightsPage = lazy(() => import('./SpaceHealthInsightsPage'))
@@ -342,12 +343,14 @@ function DetailTrend24({ code, label, entries, end }) {
 
 export default function BodyExplorerPage({ onNotify, onOpenVitals }) {
   const { language, tr } = useLanguage()
-  const [selected, setSelected] = useState('Corazón')
+  const [selected, setSelected] = useState(WHOLE_BODY)
   const isWhole = selected === WHOLE_BODY
   const [latest, setLatest] = useState({})
   const [entriesLoaded, setEntriesLoaded] = useState(false)
   const [entries, setEntries] = useState([])
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [reportRange, setReportRange] = useState(1)
+  const [busyPdf, setBusyPdf] = useState(false)
   const systems = useMemo(() => buildSystems(latest, language), [latest, language])
   const detail = systems.find((system) => system.name === selected) || systems[0]
 
@@ -376,9 +379,27 @@ export default function BodyExplorerPage({ onNotify, onOpenVitals }) {
     onNotify(tr(`Explorando sistema: ${name}.`, `Exploring system: ${SYSTEM_EN[name]?.name || name}.`))
   }
 
+  const handleReportPdf = async () => {
+    setBusyPdf(true)
+    try {
+      await downloadReportPdf({ entries, range: reportRange, language })
+      onNotify?.(tr('Informe PDF descargado.', 'PDF report downloaded.'))
+    } catch (error) {
+      onNotify?.(error.message || tr('No se pudo generar el PDF.', 'Could not generate the PDF.'))
+    } finally {
+      setBusyPdf(false)
+    }
+  }
+
   return (
     <section className="body-explorer" aria-label={tr('Explorador del cuerpo humano', 'Human body explorer')}>
       <div className="body-register-bar">
+        {isWhole && (
+          <button className="body-report-btn" onClick={handleReportPdf} disabled={busyPdf || !entriesLoaded} type="button">
+            <FileDown size={17} />
+            {busyPdf ? tr('Generando PDF…', 'Generating PDF…') : tr('Descargar informe PDF', 'Download PDF report')}
+          </button>
+        )}
         <button className="primary-pill-btn" onClick={onOpenVitals} type="button">{tr('Registrar datos', 'Record data')}</button>
       </div>
       <div className="body-main-grid">
@@ -427,7 +448,7 @@ export default function BodyExplorerPage({ onNotify, onOpenVitals }) {
 
       {isWhole && (
         <Suspense fallback={<SkeletonGroup label={tr('Cargando vista de todo el cuerpo…', 'Loading whole-body view…')}><Skeleton w="100%" h={260} radius="14px" /></SkeletonGroup>}>
-          <SpaceHealthInsightsPage onNotify={onNotify} />
+          <SpaceHealthInsightsPage onNotify={onNotify} range={reportRange} onRangeChange={setReportRange} />
         </Suspense>
       )}
     </section>

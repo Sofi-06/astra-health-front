@@ -3,7 +3,6 @@ import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey } from '../data/format'
-import { downloadReportPdf } from '../data/reportPdf'
 import { useLanguage } from '../app/LanguageContext'
 
 const METRIC_EN = { muscle_mass: 'Muscles', sleep: 'Sleep', heart_rate: 'Heart rate', glucose: 'Glucose', oxygen_saturation: 'Oxygen saturation', blood_pressure: 'Blood pressure' }
@@ -121,7 +120,7 @@ function InsightChart({ entries, metric, range }) {
   </>
 }
 
-export default function SpaceHealthInsightsPage({ onNotify }) {
+export default function SpaceHealthInsightsPage({ onNotify, range: controlledRange, onRangeChange }) {
   const { language, tr } = useLanguage()
   const [entries, setEntries] = useState([])
   const [entriesError, setEntriesError] = useState(false)
@@ -129,13 +128,17 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
   const [studies, setStudies] = useState([])
   const [studiesLoading, setStudiesLoading] = useState(true)
   const [selectedCode, setSelectedCode] = useState('sleep')
-  const [range, setRange] = useState(1)
+  const [internalRange, setInternalRange] = useState(1)
+  const range = controlledRange ?? internalRange
   const [nowMs, setNowMs] = useState(() => Date.now())
-  const changeRange = (value) => { setNowMs(Date.now()); setRange(value) }
+  const changeRange = (value) => {
+    setNowMs(Date.now())
+    if (onRangeChange) onRangeChange(value)
+    else setInternalRange(value)
+  }
   const [analysis, setAnalysis] = useState(null)
   const [analysisLoading, setAnalysisLoading] = useState(true)
   const [busyExport, setBusyExport] = useState(false)
-  const [busyPdf, setBusyPdf] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -190,15 +193,6 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
     finally { setBusyExport(false) }
   }
 
-  const handleReportPdf = async () => {
-    setBusyPdf(true)
-    try {
-      await downloadReportPdf({ entries, range, language })
-      onNotify?.(tr('Informe PDF descargado.', 'PDF report downloaded.'))
-    } catch (error) { onNotify?.(error.message || tr('No se pudo generar el PDF.', 'Could not generate the PDF.')) }
-    finally { setBusyPdf(false) }
-  }
-
   if (entriesLoading) return (
     <div className="space-insights-page" aria-label={tr('Salud en el espacio', 'Space Health Insights')}>
       <header className="shi-header"><div><h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1><p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p></div></header>
@@ -211,7 +205,17 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
   )
 
   return <div className="space-insights-page" aria-label={tr('Salud en el espacio', 'Space Health Insights')}>
-    <header className="shi-header"><div><h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1><p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p></div><div className="shi-range" role="group" aria-label={tr('Período', 'Period')}>{[1, 7, 14, 30].map((daysCount) => <button key={daysCount} type="button" className={range === daysCount ? 'is-active' : ''} onClick={() => changeRange(daysCount)} aria-pressed={range === daysCount}>{daysCount === 1 ? '24 h' : `${daysCount} ${tr('días', 'days')}`}</button>)}</div></header>
+    <header className="shi-header">
+      <div>
+        <h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1>
+        <p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p>
+      </div>
+      <div className="shi-header-actions">
+        <div className="shi-range" role="group" aria-label={tr('Período', 'Period')}>
+          {[1, 7, 14, 30].map((daysCount) => <button key={daysCount} type="button" className={range === daysCount ? 'is-active' : ''} onClick={() => changeRange(daysCount)} aria-pressed={range === daysCount}>{daysCount === 1 ? '24 h' : `${daysCount} ${tr('días', 'days')}`}</button>)}
+        </div>
+      </div>
+    </header>
     <div className="shi-guidance"><span>{tr('Cada tarjeta muestra tu último dato registrado dentro del período. Toca una tarjeta o una pestaña para cambiar la gráfica.', 'Each card shows your latest record within the period. Tap a card or tab to change the chart.')}</span><small>{tr('REGISTROS CONFIRMADOS', 'CONFIRMED RECORDS')}</small></div>
     <div className="shi-metrics">{METRICS.map((metric) => {
       const entry = latestByMetric.get(metric.code)
@@ -219,18 +223,5 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
     })}</div>
     <Panel className="shi-chart-panel"><div className="shi-chart-top"><div className="shi-tabs" role="group" aria-label={tr('Indicador de la gráfica', 'Chart metric')}>{METRICS.map((metric) => <button type="button" key={metric.code} className={selectedCode === metric.code ? 'is-active' : ''} onClick={() => setSelectedCode(metric.code)} aria-pressed={selectedCode === metric.code}>{language === 'en' ? METRIC_EN[metric.code] : metric.label}</button>)}</div><small>{range === 1 ? tr('Seguimiento de 24 horas · cada lectura en su hora real', '24-hour tracking · each reading at its actual time') : tr('Un dato = un punto · sin línea de tendencia inventada', 'One record = one point · no invented trend line')}</small></div>{entriesError ? <p className="shi-empty-plot">{tr('No se pudieron cargar tus registros. Comprueba la conexión con el backend.', 'Could not load your records. Check the backend connection.')}</p> : range === 1 ? <Hourly24Chart entries={visibleEntries} metric={selectedMetric} end={nowMs} /> : <InsightChart entries={visibleEntries} metric={selectedMetric} range={range} />}</Panel>
     <div className="shi-bottom-grid"><Panel className="shi-info-panel"><h2>{tr('◆ SOBRE ESTE TEMA EN EL ESPACIO', '◆ ABOUT THIS TOPIC IN SPACE')}</h2>{analysisLoading ? <SkeletonGroup label={tr('Cargando información educativa…', 'Loading educational information…')}><Skeleton w="100%" h={12} /><Skeleton w="90%" h={12} /><Skeleton w="75%" h={12} /></SkeletonGroup> : analysis?.education ? <><p>{analysis.education.text}</p><small>{analysis.education.scope}</small></> : <p>{tr(`La información educativa para ${selectedMetric.label.toLowerCase()} no está disponible en este momento.`, `Educational information about ${METRIC_EN[selectedMetric.code].toLowerCase()} is unavailable right now.`)}</p>}{analysis?.cannot_conclude?.length > 0 && <p className="shi-limit">{tr(`Este resumen no determina ${analysis.cannot_conclude.join(', ').toLowerCase()}.`, 'This summary does not provide a clinical conclusion.')}</p>}<p className="shi-scope">{tr('Información general y educativa. No interpreta tus registros ni es una recomendación para ti.', 'General educational information. It does not interpret your records or make a personal recommendation.')}</p><button type="button" className="shi-export" onClick={handleExport} disabled={busyExport}>{busyExport ? tr('Descargando…', 'Downloading…') : tr('Descargar mis datos JSON →', 'Download my data as JSON →')}</button></Panel><Panel className="shi-research-panel"><h2>{tr('◆ EXPLORAR INVESTIGACIÓN NASA · OSDR', '◆ EXPLORE NASA RESEARCH · OSDR')}</h2>{studiesLoading ? <SkeletonGroup label={tr('Cargando estudios…', 'Loading studies…')}>{[0, 1].map((index) => <Skeleton key={index} w="100%" h={44} radius="10px" />)}</SkeletonGroup> : studies.length ? studies.slice(0, 3).map((study) => <div className="shi-study" key={study.accession}><span><strong>{study.title}</strong><small>{tr('Copia local del', 'Local copy from')} {study.retrieved_at ? formatDay(study.retrieved_at, language) : '—'}{study.stale ? tr(' · desactualizada', ' · outdated') : ''}</small></span>{study.api_url ? <a href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a> : <em>{study.accession}</em>}</div>) : <p>{tr('No hay estudios en la copia local.', 'No studies in the local copy.')}</p>}<p className="shi-scope">{tr('Investigación pública, separada de tus registros personales. No es un protocolo clínico.', 'Public research, separate from your personal records. Not a clinical protocol.')}</p></Panel></div>
-    <div className="shi-bottom-grid">
-      <Panel className="weekly-report-panel">
-        <span className="section-title">{tr('INFORME', 'REPORT')}</span>
-        <ul className="report-bullet-list">
-          <li><span className="bullet-cyan" /><span>{tr('PDF descargable del periodo seleccionado', 'Downloadable PDF for the selected period')}</span></li>
-          <li><span className="bullet-cyan" /><span>{tr('Incluye gráficas del historial de síntomas', 'Includes symptom history charts')}</span></li>
-          <li><span className="bullet-cyan" /><span>{tr('Solo datos confirmados, sin diagnóstico ni envío automático', 'Only confirmed data, no diagnosis or automatic sharing')}</span></li>
-        </ul>
-        <div className="report-buttons-group">
-          <button className="primary-pill-btn report-btn" onClick={handleReportPdf} disabled={busyPdf || entriesError} type="button"><span>{busyPdf ? tr('Generando PDF…', 'Generating PDF…') : tr('Descargar informe PDF', 'Download PDF report')}</span></button>
-        </div>
-      </Panel>
-    </div>
   </div>
 }

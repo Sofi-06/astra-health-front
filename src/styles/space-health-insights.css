@@ -525,12 +525,27 @@
 .shi-header h1 { margin: 0; color: #f4f8ff; font-size: clamp(1.45rem, 2.1vw, 2rem); line-height: 1.1; }
 .shi-header h1 span { color: #39d8fa; }
 .shi-header p { margin: 3px 0 0; color: #91afc2; font-size: .73rem; }
+.shi-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.shi-report-download {
+  min-height: 38px;
+  padding: 0 17px;
+  border: 1px solid rgba(49, 220, 255, .62);
+  border-radius: 10px;
+  color: #03263b;
+  background: linear-gradient(90deg, #27b8ef, #42ddf2);
+  box-shadow: 0 0 16px rgba(49, 220, 255, .18);
+  font-size: .72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.shi-report-download:hover { filter: brightness(1.08); }
+.shi-report-download:disabled { opacity: .55; cursor: wait; }
 .shi-range { display: flex; flex: none; gap: 4px; padding: 4px; border: 1px solid rgba(75, 145, 194, .28); border-radius: 10px; background: rgba(8, 29, 65, .85); }
 .shi-range button { min-width: 70px; min-height: 30px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: #8baac1; cursor: pointer; font-size: .72rem; }
 .shi-range button.is-active { background: #174d83; color: #aee8ff; box-shadow: 0 0 12px rgba(32, 174, 245, .28); }
 .shi-guidance { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 8px 13px; border: 1px solid rgba(63, 133, 184, .32); border-left: 3px solid #33ceef; border-radius: 8px; background: rgba(11, 31, 67, .72); color: #a7bfd0; font-size: .68rem; }
 .shi-guidance small { flex: none; padding: 4px 9px; border: 1px solid rgba(70, 214, 245, .35); border-radius: 16px; color: #64d9ef; font-size: .55rem; letter-spacing: .1em; }
-.shi-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.shi-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
 .shi-metric { display: flex; min-width: 0; min-height: 98px; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 14px; border: 1px solid rgba(71, 140, 188, .35); border-radius: 14px; background: linear-gradient(145deg, rgba(14, 39, 76, .94), rgba(7, 25, 55, .94)); color: #d9eafa; cursor: pointer; text-align: left; transition: transform .15s, border-color .15s; }
 .shi-metric:hover { transform: translateY(-2px); border-color: var(--shi-accent); }
 .shi-metric.is-active { border-color: var(--shi-accent); box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 0 14px color-mix(in srgb, var(--shi-accent) 20%, transparent); }
@@ -575,6 +590,8 @@
 }
 @media (max-width: 700px) {
   .shi-header { flex-wrap: wrap; }
+  .shi-header-actions { width: 100%; justify-content: stretch; }
+  .shi-report-download { width: 100%; order: 2; }
   .shi-range { width: 100%; }
   .shi-range button { flex: 1; }
   .shi-guidance { flex-wrap: wrap; }
