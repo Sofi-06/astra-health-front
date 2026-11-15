@@ -354,22 +354,16 @@ export default function BodyExplorerPage({ onNotify }) {
         <BodyModel selected={selected} onSelect={chooseSystem} latest={latest} />
 
         <Panel className="body-detail-card">
-          <span className="body-kicker">DETALLE</span>
-          <h2>{detail.name}</h2>
+          <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
+          <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
           {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={120} h={22} radius="14px" />}
           {detailLoading ? (
-            <SkeletonGroup label="Cargando evolución del sistema…">
+            <SkeletonGroup label={tr('Cargando evolución del sistema…', 'Loading system evolution…')}>
               <Skeleton w="100%" h={100} />
             </SkeletonGroup>
           ) : (
             <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
           )}
-          <h3>EN EL ESPACIO</h3><p>{detail.description}</p>
-          <h3>QUÉ SE REGISTRA</h3>
-          <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
-          <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
-          <span className="body-status-chip">{detail.status}</span>
-          <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
           <h3>{tr('EN EL ESPACIO', 'IN SPACE')}</h3><p>{language === 'en' ? SYSTEM_EN[detail.name]?.description : detail.description}</p>
           <h3>{tr('QUÉ SE REGISTRA', 'WHAT IS RECORDED')}</h3>
           <ul>{detail.records.map((record) => <li key={record}>{record}</li>)}</ul>
