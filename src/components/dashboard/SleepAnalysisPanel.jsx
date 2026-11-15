@@ -68,14 +68,16 @@ export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpe
                 />
               </svg>
               <div className="sleep-ring-value">
-                <strong>{percentage ? `${percentage}%` : '—'}</strong>
+                <strong>{stats.mean_hours != null ? `${stats.mean_hours} h` : '—'}</strong>
+                <small>ref. 8 h</small>
               </div>
             </div>
 
             {/* Información textual real */}
             <div className="sleep-panel-pro__info">
-              <h3>{stats.mean_hours >= 7 ? 'Calidad óptima' : 'Sueño irregular'}</h3>
+              <h3>Media del periodo</h3>
               <p>Promedio: {stats.mean_hours} h · ({stats.min.hours}h - {stats.max.hours}h)</p>
+              <p className="sleep-note">Horas declaradas; el arco compara la media con una referencia de 8 h. No es una evaluación de calidad.</p>
 
               {/* Segmentos de días registrados */}
               <div className="sleep-segments-bar" title={`${daysRecorded} de ${daysTotal} noches registradas`}>
