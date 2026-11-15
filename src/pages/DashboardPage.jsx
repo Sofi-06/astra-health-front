@@ -75,7 +75,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
 
         {/* Fila: Pendientes de hoy + Análisis de sueño */}
         <div className="dashboard-tasks-sleep-row">
-          <TasksPanel onOpenVitals={() => setModalOpen(true)} />
+          <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
           <SleepAnalysisPanel
             analysis={sleep}
             onReload={reload}
