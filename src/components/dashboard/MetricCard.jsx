@@ -4,7 +4,7 @@ import { formatValue, formatWhen } from '../../data/format'
 
 const METRIC_CONFIG = {
   heart_rate: { label: 'Pulso', defaultUnit: 'lpm', icon: Heart },
-  sleep: { label: 'Sueño de calidad', defaultUnit: '%', icon: Moon },
+  sleep: { label: 'Sueño', defaultUnit: 'h', icon: Moon },
   blood_pressure: { label: 'Presión arterial', defaultUnit: 'mmHg', icon: Activity },
   oxygen_saturation: { label: 'Saturación', defaultUnit: '%', icon: Droplet },
   temperature: { label: 'Temperatura', defaultUnit: '°C', icon: Thermometer },
