@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Panel from '../ui/Panel'
 import Skeleton from '../ui/Skeleton'
+import { getCheckIns } from '../../api/client'
 import { formatDay, localDateKey } from '../../data/format'
 import { useLanguage } from '../../app/LanguageContext'
 
@@ -9,7 +10,7 @@ const SYSTEMS = [
   { name: 'Metabólica', en: 'Metabolic', metrics: ['glucose'] },
   { name: 'Descanso', en: 'Rest', metrics: ['sleep'] },
   { name: 'Músculos', en: 'Muscles', metrics: ['muscle_mass'] },
-  { name: 'Psicológica', en: 'Psychological', metrics: [] },
+  { name: 'Psicológica', en: 'Psychological', metrics: [], mind: true },
 ]
 
 function lastDays(count) {
@@ -25,6 +26,15 @@ function lastDays(count) {
 export default function SystemsPanel({ entries = [], loading = false }) {
   const { language, tr } = useLanguage()
   const days = useMemo(() => lastDays(7), [])
+  // Psicológica: días con un check-in de Bienestar emocional.
+  const [checkInDates, setCheckInDates] = useState(() => new Set())
+  useEffect(() => {
+    let cancelled = false
+    getCheckIns(7).then((data) => {
+      if (!cancelled) setCheckInDates(new Set((data.check_ins || []).map((item) => item.date)))
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   const recorded = useMemo(() => {
     const map = {}
     entries.forEach((entry) => {
@@ -47,12 +57,12 @@ export default function SystemsPanel({ entries = [], loading = false }) {
           <div key={system.name} className="heatmap-system-row">
             <span className="system-row-name">
               {language === 'en' ? system.en : system.name}
-              {system.metrics.length === 0 && <small className="system-row-note">{tr('sin fuente de datos', 'no data source')}</small>}
+              {system.mind && <small className="system-row-note">{tr('bienestar emocional', 'emotional wellbeing')}</small>}
             </span>
             <div className="heatmap-blocks-row">
               {days.map((day) => loading
                 ? <Skeleton key={day} w={22} h={22} radius="6px" />
-                : <span key={day} className={`heatmap-cell ${system.metrics.some((code) => recorded[code]?.has(day)) ? 'cell--stable' : 'cell--empty'}`} />)}
+                : <span key={day} className={`heatmap-cell ${(system.mind ? checkInDates.has(day) : system.metrics.some((code) => recorded[code]?.has(day))) ? 'cell--stable' : 'cell--empty'}`} />)}
             </div>
           </div>
         ))}

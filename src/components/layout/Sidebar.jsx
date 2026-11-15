@@ -8,7 +8,6 @@ import {
   X,
 } from 'lucide-react'
 import { navItems } from '../../data/dashboardData'
-import { formatWhen } from '../../data/format'
 import { useLanguage } from '../../app/LanguageContext'
 
 const NAV_EN = {
@@ -133,7 +132,7 @@ export default function Sidebar({
           <div className="mission-card__lines">
             <p>
               <Calendar size={12} />
-              <span>{tr('Inicio', 'Started')}: {sessionStartedAt ? formatWhen(sessionStartedAt, language) : tr('Sin fecha', 'No date')}</span>
+              <span>{tr('Primer registro (día 0)', 'First record (day 0)')}: {sessionStartedAt ? new Date(sessionStartedAt).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO') : tr('aún sin registros', 'no records yet')}</span>
             </p>
             <p>
               <Globe size={12} />

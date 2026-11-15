@@ -62,8 +62,11 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
   const greetingRun = useRef(0)
   const { latest, entries, history, loading, reload } = useHealthData()
   const sessionStartedAt = session?.created_at
-  const sessionDay = sessionStartedAt
-    ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))
+  // Día de misión: el día del primer registro es el día 0 y se cuenta por fechas del calendario.
+  const firstRecordAt = entries.reduce((first, entry) => (!first || entry.measured_at < first ? entry.measured_at : first), null)
+  const calendarStart = (iso) => { const d = new Date(iso); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() }
+  const sessionDay = firstRecordAt
+    ? Math.max(0, Math.round((calendarStart(new Date().toISOString()) - calendarStart(firstRecordAt)) / 86400000))
     : 0
 
   const speakGreeting = useCallback(() => {
@@ -241,7 +244,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
         onSelect={selectPage}
         onNotify={onNotify}
         sessionDay={sessionDay}
-        sessionStartedAt={sessionStartedAt}
+        sessionStartedAt={firstRecordAt}
         onLogout={onLogout}
       />
 
