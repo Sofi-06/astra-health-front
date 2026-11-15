@@ -16,6 +16,7 @@ import HumanVisualizer from '../components/dashboard/HumanVisualizer'
 import TrendsPanel from '../components/dashboard/TrendsPanel'
 import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
+import AstraVoicePanel from '../components/voice/AstraVoicePanel'
 import useHealthData from '../hooks/useHealthData'
 import { updateProfileImage } from '../api/client'
 
@@ -40,6 +41,11 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
   const saved = async () => {
     await reload()
     onNotify?.('Registro confirmado y guardado en SQLite.')
+  }
+
+  const voiceSaved = async () => {
+    await reload()
+    onNotify?.('Registro por voz confirmado y guardado en SQLite.')
   }
 
   const saveProfileImage = async (url) => {
@@ -166,6 +172,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
       </div>
 
       <VitalsModal open={modalOpen} onClose={() => setModalOpen(false)} onSaved={saved} />
+      <AstraVoicePanel onNotify={onNotify} onSaved={voiceSaved} />
     </main>
   )
 }
