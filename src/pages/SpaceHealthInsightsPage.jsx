@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
-import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
+import { exportData, getAnalysis, getCheckIns, listEntries, listResearchStudies } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey } from '../data/format'
 import { downloadReportPdf } from '../data/reportPdf'
 import { useLanguage } from '../app/LanguageContext'
@@ -193,7 +193,8 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
   const handleReportPdf = async () => {
     setBusyPdf(true)
     try {
-      await downloadReportPdf({ entries, range, language })
+      const mind = await getCheckIns(3650).catch(() => ({ check_ins: [] }))
+      await downloadReportPdf({ entries, range, language, checkIns: mind.check_ins || [] })
       onNotify?.(tr('Informe PDF descargado.', 'PDF report downloaded.'))
     } catch (error) { onNotify?.(error.message || tr('No se pudo generar el PDF.', 'Could not generate the PDF.')) }
     finally { setBusyPdf(false) }

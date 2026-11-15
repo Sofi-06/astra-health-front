@@ -445,3 +445,18 @@ test('un síntoma dictado no se guarda solo: pide confirmación, no el instrumen
   assert.equal(calls.confirmPending.length, 0)
   assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
 })
+
+test('guarda las lecturas entendidas y dice cuáles no entendió', async () => {
+  const reply = { ...batchReply, skipped: ['temperatura'] }
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => reply }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('pulso 80 temperatura')
+  await tick()
+  assert.equal(calls.confirmPending.length, 1)
+  assert.deepEqual(calls.saved, [1])
+  assert.match(spoken.at(-1), /ya guardé 2 lecturas/)
+  assert.match(spoken.at(-1), /No entendí: temperatura/)
+})
