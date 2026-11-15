@@ -207,8 +207,18 @@
     flex-wrap: wrap;
   }
 
+  .profile-card__body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .profile-card__email {
+    overflow-wrap: anywhere;
+  }
+
   .profile-card__badge-day {
-    margin-left: auto;
+    order: 5;
+    margin-left: 0;
   }
 }
 
