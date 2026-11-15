@@ -211,7 +211,7 @@ function ExplorerModel({ selected, onSelect }) {
   // El modelo es una sola escena: las zonas invisibles viven en este mismo grupo,
   // por lo que mantienen su posición al rotar o acercar la cámara.
   return (
-    <group ref={group} scale={0.96} position={[0.08, -0.42, 0]}>
+    <group ref={group} scale={0.84} position={[0.08, -0.16, 0]}>
       <primitive object={model} />
       {bodyHitZones.map((zone, index) => (
         <BodyHitZone
@@ -242,12 +242,12 @@ function BodyModel({ selected, onSelect, latest }) {
       <div className="body-orbit body-orbit--one" /><div className="body-orbit body-orbit--two" />
       <div className="body-platform"><i /><i /><i /></div>
       <Suspense fallback={<div className="body-model-loading">{tr('Sincronizando modelo…', 'Syncing model…')}</div>}>
-        <Canvas key="body-explorer-fixed-camera" camera={{ position: [0, 2.35, 14.2], fov: 32 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
+        <Canvas key="body-explorer-fixed-camera" camera={{ position: [0, 2.25, 14.0], fov: 31 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
           <ambientLight intensity={0.5} color="#43dcff" />
           <pointLight position={[2, 3, 4]} intensity={8} color="#00bfff" distance={10} />
           <pointLight position={[-2, 0, 3]} intensity={6} color="#70f5ff" distance={9} />
           <ExplorerModel selected={selected} onSelect={onSelect} />
-          <OrbitControls target={[0, 2.35, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
+          <OrbitControls target={[0, 2.25, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
       <div className="body-callout body-callout--mood"><small>{tr('TEMPERATURA', 'TEMPERATURE')}</small><strong>{temp ? <>{formatValue(temp.candidate)} <em>{temp.candidate.unit}</em></> : '—'}</strong></div>
@@ -345,6 +345,9 @@ export default function BodyExplorerPage({ onNotify }) {
 
   return (
     <section className="body-explorer" aria-label={tr('Explorador del cuerpo humano', 'Human body explorer')}>
+      <div className="body-explorer-header">
+        <h1>{tr('Explorador corporal', 'Body Explorer')}</h1>
+      </div>
       <div className="body-main-grid">
         <Panel className="body-systems-card">
           <span className="body-kicker">{tr('SISTEMAS', 'SYSTEMS')}</span>
