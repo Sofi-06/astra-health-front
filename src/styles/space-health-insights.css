@@ -142,32 +142,33 @@
 }
 
 .node--sleep {
-  top: 15px;
-  left: 36%;
+  top: 8px;
+  left: 14%;
   border: 1.5px solid rgba(49, 220, 255, 0.6);
 }
 
 .node--fatigue {
-  top: 15px;
-  right: 28%;
+  top: 8px;
+  right: 14%;
   border: 1.5px solid rgba(255, 122, 142, 0.65);
 }
 
 .node--stress {
-  bottom: 25px;
-  right: 22%;
+  top: 96px;
+  right: 2%;
   border: 1.5px solid rgba(192, 132, 252, 0.6);
 }
 
 .node--activity {
-  bottom: 10px;
-  left: 54%;
+  bottom: 4px;
+  left: 50%;
+  margin-left: -62px;
   border: 1.5px solid rgba(255, 214, 90, 0.7);
 }
 
 .node--mood {
-  bottom: 25px;
-  left: 28%;
+  top: 96px;
+  left: 2%;
   border: 1.5px solid rgba(49, 220, 255, 0.6);
 }
 
@@ -214,7 +215,7 @@
 /* ─── Bottom Grid (3 Panels) ─── */
 .insights-bottom-grid {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
+  grid-template-columns: 1.15fr 1.3fr 1.15fr;
   gap: 16px;
 }
 
@@ -448,6 +449,7 @@
     inset: auto;
     width: 100%;
     min-width: 0;
+    margin-left: 0;
     padding: 9px 10px;
   }
 
@@ -497,6 +499,19 @@
 
   .hazard-row {
     gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .hazard-name {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .hazard-name .study-title {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .status-badge {
