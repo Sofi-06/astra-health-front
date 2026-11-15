@@ -8,6 +8,7 @@ import SpaceHealthInsightsPage from './SpaceHealthInsightsPage'
 import SmartAlertsPage from './SmartAlertsPage'
 import MissionChallengesPage from './MissionChallengesPage'
 import HealthAnalyticsPage from './HealthAnalyticsPage'
+import WellnessGuidePage from './WellnessGuidePage'
 import ProfileCard from '../components/dashboard/ProfileCard'
 import MetricCard from '../components/dashboard/MetricCard'
 import TasksPanel from '../components/dashboard/TasksPanel'
@@ -115,6 +116,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
     if (activePage === 'Health Analytics') {
       return <HealthAnalyticsPage onNotify={onNotify} sessionDay={sessionDay} />
     }
+    if (activePage === 'Wellness Guide') return <WellnessGuidePage onNotify={onNotify} />
     return renderDashboard()
   }
 

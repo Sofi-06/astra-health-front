@@ -44,6 +44,7 @@ export default function Sidebar({
       'Smart Alerts',
       'Mission Challenges',
       'Health Analytics',
+      'Wellness Guide',
     ]
     if (available.includes(label)) {
       onSelect?.(label)

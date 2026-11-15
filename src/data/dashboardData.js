@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  BookOpen,
   Brain,
   HeartPulse,
   LayoutDashboard,
@@ -19,6 +20,7 @@ export const navItems = [
   { label: 'Smart Alerts', icon: ShieldAlert },
   { label: 'Mission Challenges', icon: Star },
   { label: 'Health Analytics', icon: BarChart3 },
+  { label: 'Wellness Guide', icon: BookOpen },
 ]
 
 // Pendientes de registro: se marcan solos cuando el indicador tiene un

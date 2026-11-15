@@ -75,6 +75,7 @@ export const getAnalysis = (metric, days = 7) =>
   request(`analysis/${metric}?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
 export const loadSyntheticMetric = (metric) => request(`synthetic/${metric}`, { method: 'POST' })
 export const getCapabilities = () => request('capabilities')
+export const getGuidance = () => request('guidance')
 export const getSafety = () => request('safety')
 export const listResearchStudies = () => request('research/studies')
 export const exportData = () => request('export')
