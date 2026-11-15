@@ -218,7 +218,7 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
     run(async () => {
       const text = isFreeText ? draft.text.trim() : createMessage(metric, draft)
       if (isFreeText && text.length < 3) throw new Error('Escribe o dicta una lectura o síntoma primero.')
-      const data = await sendMessage(text)
+      const data = await sendMessage(text, { voice: isFreeText && Boolean(voiceSource) })
       if (data.status !== 'needs_confirmation' || !data.pending_id) {
         setReply(data)
         return
@@ -227,6 +227,35 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
       // solo como prellenado editable, nunca se guardan solos.
       const suggested = data.candidate?.suggested_origin
       const suggestedAt = data.candidate?.suggested_measured_at
+
+      // Dictado o nota de voz con una o varias lecturas: se guardan de una vez.
+      // Sin instrumento dicho se anota "Dato declarado por voz"; sin hora, la actual.
+      const spokenReading = data.candidate?.kind === 'measurement' || data.candidate?.kind === 'batch'
+      if (isFreeText && voiceSource && spokenReading) {
+        const spokenOrigin = data.candidate.explicit_origin ? String(suggested || '').trim().slice(0, 120) : ''
+        const spokenAt = data.candidate.explicit_time && suggestedAt ? new Date(suggestedAt) : new Date()
+        try {
+          const saved = await confirmPending({
+            pending_id: data.pending_id,
+            origin: spokenOrigin.length >= 2 ? spokenOrigin : 'Dato declarado por voz',
+            context: '',
+            measured_at: (Number.isNaN(spokenAt.getTime()) ? new Date() : spokenAt).toISOString(),
+          })
+          const newEntries = saved.entries?.length ? saved.entries : [saved.entry]
+          setSavedEntries((current) => [...current, ...newEntries])
+          setStep(1)
+          setMetric('')
+          setDraft(EMPTY_DRAFT)
+          setProposal(null)
+          setReply(null)
+          setVoiceSource(null)
+          setVoiceMsg('')
+          await onSaved(newEntries.length)
+          return
+        } catch {
+          // Si no se pudo (p. ej. hora futura), se muestra la revisión normal.
+        }
+      }
       setDraft((current) => ({
         ...current,
         origin: current.origin || suggested || '',
@@ -247,14 +276,11 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
   const confirm = (event) => {
     event.preventDefault()
     run(async () => {
-      if (!draft.origin || draft.origin.trim().length < 2) {
-        throw new Error('Escribe el instrumento u origen de la medición.')
-      }
       let saved
       try {
         saved = await confirmPending({
           pending_id: proposal.pending_id,
-          origin: draft.origin.trim(),
+          origin: (draft.origin || '').trim(),
           context: draft.context,
           measured_at: new Date(draft.measuredAt).toISOString(),
         })
@@ -549,8 +575,8 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
             {!isFreeText && (
               <>
                 <label className="modal-field">
-                  <span>{tr('Instrumento u origen', 'Instrument or source')} <b>{tr('Obligatorio', 'Required')}</b></span>
-                  <input value={draft.origin} onChange={(event) => updateDraft('origin', event.target.value)} placeholder={tr('Ej.: Pulsómetro, termómetro o dato declarado', 'E.g. pulse oximeter, thermometer or self-reported value')} minLength="2" maxLength="120" required />
+                  <span>{tr('Instrumento u origen', 'Instrument or source')} <em>{tr('Opcional', 'Optional')}</em></span>
+                  <input value={draft.origin} onChange={(event) => updateDraft('origin', event.target.value)} placeholder={tr('Ej.: Pulsómetro, termómetro o dato declarado', 'E.g. pulse oximeter, thermometer or self-reported value')} maxLength="120" />
                 </label>
                 <label className="modal-field">
                   <span>{tr('Contexto', 'Context')} <em>{tr('Opcional', 'Optional')}</em></span>
@@ -594,8 +620,8 @@ export default function VitalsModal({ open, onClose, onSaved, initialMetric = ''
             {isFreeText && (
               <>
                 <label className="modal-field">
-                <span>{tr('Instrumento u origen', 'Instrument or source')} <b>{tr('Obligatorio', 'Required')}</b></span>
-                <input value={draft.origin} onChange={(event) => updateDraft('origin', event.target.value)} placeholder={tr('Ej.: Pulsómetro, termómetro o dato declarado', 'E.g. pulse oximeter, thermometer or self-reported value')} minLength="2" maxLength="120" required />
+                <span>{tr('Instrumento u origen', 'Instrument or source')} <em>{tr('Opcional', 'Optional')}</em></span>
+                <input value={draft.origin} onChange={(event) => updateDraft('origin', event.target.value)} placeholder={tr('Ej.: Pulsómetro, termómetro o dato declarado', 'E.g. pulse oximeter, thermometer or self-reported value')} maxLength="120" />
                 </label>
                 <label className="modal-field">
                 <span>{tr('Contexto', 'Context')} <em>{tr('Opcional', 'Optional')}</em></span>

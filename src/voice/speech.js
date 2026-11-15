@@ -56,11 +56,12 @@ export function createBrowserSpeech({ isMuted = () => false } = {}) {
 
   // mode 'wake': continuo, solo resultados finales (vigilar la palabra clave).
   // mode 'turn': una frase, con resultados parciales para mostrar en pantalla.
+  // mode 'collect': continuo, con parciales; el motor decide cuándo cortar (ventana de silencio).
   const createRecognition = (mode) => {
     const rec = new SR()
     rec.lang = 'es-CO'
-    rec.continuous = mode === 'wake'
-    rec.interimResults = mode === 'turn'
+    rec.continuous = mode === 'wake' || mode === 'collect'
+    rec.interimResults = mode !== 'wake'
     const wrapper = {
       onresult: null,
       onerror: null,
@@ -79,7 +80,7 @@ export function createBrowserSpeech({ isMuted = () => false } = {}) {
       }
       if (finalText.trim()) {
         wrapper.onresult({ isFinal: true, transcript: finalText.trim() })
-      } else if (mode === 'turn' && interimText.trim()) {
+      } else if (mode !== 'wake' && interimText.trim()) {
         wrapper.onresult({ isFinal: false, transcript: interimText.trim() })
       }
     }

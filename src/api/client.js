@@ -79,7 +79,9 @@ export const getHistory = (metric, days = 30) => request(`history?metric=${metri
 export const getSleepAnalysis = (days = 7) =>
   request(`analysis/sleep?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}&lang=${apiLanguage}`)
 export const loadSyntheticSleep = () => request('synthetic/sleep', { method: 'POST' })
-export const sendMessage = (text) => request('messages', { method: 'POST', body: { text, lang: apiLanguage } })
+// `voice`: el texto viene de dictado; el backend asume la unidad cuando el indicador solo tiene una.
+export const sendMessage = (text, { voice = false } = {}) =>
+  request('messages', { method: 'POST', body: { text, lang: apiLanguage, ...(voice ? { assume_units: true } : {}) } })
 export const confirmPending = (payload) => request('confirmations', { method: 'POST', body: { confirmed: true, ...payload } })
 export const discardPending = () => request('pending', { method: 'DELETE' })
 export const getAnalysis = (metric, days = 7) =>
@@ -94,6 +96,7 @@ export const exportData = () => request('export')
 export const getCheckIns = (days = 7) => request(`mind/check-ins?days=${days}`)
 export const saveCheckIn = (date, payload) =>
   request(`mind/check-ins/${date}`, { method: 'PUT', body: payload })
+export const loadSyntheticMind = () => request('mind/synthetic', { method: 'POST' })
 export const listJournalEntries = () => request('mind/journal')
 export const createJournalEntry = (payload) => request('mind/journal', { method: 'POST', body: payload })
 export const updateJournalEntry = (id, payload) => request(`mind/journal/${id}`, { method: 'PUT', body: payload })

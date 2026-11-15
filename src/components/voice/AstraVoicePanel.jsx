@@ -26,8 +26,9 @@ const ACTIVE = new Set([
 ])
 
 // Panel de la conversación de voz de Astra. El micrófono solo se usa mientras
-// el modo está activo y la pestaña abierta; ninguna lectura se guarda sin la
-// confirmación hablada de la usuaria (origen + sí explícito).
+// el modo está activo y la pestaña abierta. Las lecturas dictadas (una o varias) se
+// guardan al terminar el turno, tras 3 segundos de silencio; Astra dice qué guardó.
+// Un síntoma o comentario sí requiere la confirmación hablada.
 export default function AstraVoicePanel({ onNotify, onSaved }) {
   const [open, setOpen] = useState(false)
   const [snap, setSnap] = useState({ status: STATUS.OFF, detail: '', lastUserText: '', lastAstraText: '' })
@@ -148,8 +149,9 @@ export default function AstraVoicePanel({ onNotify, onSaved }) {
           <p className="astra-voice__hint">
             Escucha solo con esta pestaña abierta y la pantalla activa; no escucha con la pestaña
             cerrada ni el celular bloqueado. El reconocimiento lo hace el servicio de voz del
-            navegador y puede necesitar internet. Nada se guarda sin tu confirmación por voz, y
-            las urgencias no se derivan solas: Astra solo avisa, no alerta a nadie.
+            navegador y puede necesitar internet. Puedes dictar varios signos seguidos: Astra espera
+            3 segundos de silencio y guarda todo junto, diciéndote qué guardó. Los síntomas sí
+            piden confirmación. Las urgencias no se derivan solas: Astra solo avisa, no alerta a nadie.
           </p>
         </section>
       )}

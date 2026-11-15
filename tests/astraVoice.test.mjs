@@ -50,7 +50,7 @@ class FakeRec {
   }
 }
 
-function makeWorld({ api = {}, supported = true, reason = '' } = {}) {
+function makeWorld({ api = {}, supported = true, reason = '', autoSave = false, settleMs = 0 } = {}) {
   const bag = { current: null, created: [] }
   const spoken = []
   const calls = {
@@ -91,6 +91,8 @@ function makeWorld({ api = {}, supported = true, reason = '' } = {}) {
     api: apiDefaults,
     onSaved: (count) => calls.saved.push(count),
     wakeRestartMs: 1,
+    autoSave,
+    settleMs,
   })
   return { engine, bag, spoken, calls }
 }
@@ -139,7 +141,7 @@ test('sin soporte de voz lo dice y no intenta escuchar', () => {
   assert.equal(bag.created.length, 0)
 })
 
-test('flujo completo: Astra -> lectura -> origen -> sí -> guardado', async () => {
+test('flujo completo: Astra -> lectura -> sí -> guardado (el instrumento es opcional)', async () => {
   const { engine, bag, spoken, calls } = makeWorld({
     api: { sendMessage: async () => measurementReply },
   })
@@ -155,21 +157,16 @@ test('flujo completo: Astra -> lectura -> origen -> sí -> guardado', async () =
   bag.current.say('pulso ochenta y dos')
   await tick()
   assert.deepEqual(calls.sendMessage, ['pulso ochenta y dos'])
-  assert.equal(engine.getState().status, STATUS.AWAIT_ORIGIN)
-  assert.match(spoken.at(-1), /pulso 82 latidos por minuto/)
-  assert.match(spoken.at(-1), /instrumento o de qué origen/)
-  assert.equal(calls.confirmPending.length, 0)
-
-  bag.current.say('pulsómetro de muñeca')
-  await tick()
   assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
-  assert.match(spoken.at(-1), /origen pulsómetro de muñeca/)
-  assert.match(spoken.at(-1), /¿Lo confirmas\?/)
+  assert.match(spoken.at(-1), /pulso 82 latidos por minuto/)
+  assert.match(spoken.at(-1), /¿Lo guardo\?/)
+  assert.doesNotMatch(spoken.at(-1), /instrumento/)
+  assert.equal(calls.confirmPending.length, 0)
 
   bag.current.say('sí')
   await tick()
   assert.equal(calls.confirmPending.length, 1)
-  assert.equal(calls.confirmPending[0].origin, 'pulsómetro de muñeca')
+  assert.equal(calls.confirmPending[0].origin, '')
   assert.equal(calls.confirmPending[0].pending_id, measurementReply.pending_id)
   assert.ok(calls.confirmPending[0].measured_at)
   assert.deepEqual(calls.saved, [1])
@@ -186,8 +183,6 @@ test('respuesta "no" descarta y no guarda nada', async () => {
   bag.current.say('Astra')
   await tick()
   bag.current.say('pulso 82')
-  await tick()
-  bag.current.say('pulsómetro')
   await tick()
   bag.current.say('no')
   await tick()
@@ -206,8 +201,6 @@ test('si no entiende el sí/no dos veces, descarta por seguridad', async () => {
   bag.current.say('Astra')
   await tick()
   bag.current.say('pulso 82')
-  await tick()
-  bag.current.say('pulsómetro')
   await tick()
   bag.current.say('quizás')
   await tick()
@@ -257,7 +250,7 @@ test('aclaración: la respuesta de Astra se escucha y el siguiente audio es otro
   bag.current.say('grados celsius')
   await tick()
   assert.deepEqual(calls.sendMessage, ['temperatura 37', 'grados celsius'])
-  assert.equal(engine.getState().status, STATUS.AWAIT_ORIGIN)
+  assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
 })
 
 test('palabra de salida con lectura pendiente la descarta y vuelve al modo Astra', async () => {
@@ -316,12 +309,139 @@ test('confirmación vencida (409) no guarda y vuelve a escuchar', async () => {
   await tick()
   bag.current.say('pulso 82')
   await tick()
-  bag.current.say('pulsómetro')
-  await tick()
   bag.current.say('sí')
   await tick()
   assert.deepEqual(calls.saved, [])
   assert.match(spoken.at(-1), /venció/)
   assert.match(spoken.at(-1), /no guardé nada/)
   assert.equal(engine.getState().status, STATUS.LISTENING)
+})
+
+const fullReply = {
+  status: 'needs_confirmation',
+  pending_id: '22222222-2222-2222-2222-222222222222',
+  message: 'Confirma tu lectura.',
+  candidate: {
+    kind: 'measurement', metric: 'temperature', values: [40], unit: '°C',
+    suggested_origin: 'Termómetro', suggested_measured_at: '2026-11-15T12:42',
+    explicit_origin: true, explicit_time: true,
+  },
+}
+
+test('si dice valor, instrumento y hora, se guarda de una vez sin preguntar', async () => {
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => fullReply }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('tengo una temperatura de 40 grados centígrados con un termómetro a las 12 y 42 pm')
+  await tick()
+  assert.equal(calls.confirmPending.length, 1)
+  assert.equal(calls.confirmPending[0].origin, 'Termómetro')
+  assert.equal(calls.confirmPending[0].pending_id, fullReply.pending_id)
+  assert.equal(calls.confirmPending[0].measured_at, new Date('2026-11-15T12:42').toISOString())
+  assert.deepEqual(calls.saved, [1])
+  assert.match(spoken.at(-1), /ya guardé temperatura 40/)
+  assert.match(spoken.at(-1), /Termómetro/)
+  assert.equal(engine.getState().status, STATUS.LISTENING)
+})
+
+test('si dijo el instrumento pero no la hora, solo pide confirmar', async () => {
+  const reply = { ...fullReply, candidate: { ...fullReply.candidate, explicit_time: false } }
+  const { engine, bag, spoken, calls } = makeWorld({ api: { sendMessage: async () => reply } })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('temperatura 40 grados con un termómetro')
+  await tick()
+  assert.equal(calls.confirmPending.length, 0)
+  assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
+  assert.match(spoken.at(-1), /medido con Termómetro\. ¿Lo guardo\?/)
+  bag.current.say('sí')
+  await tick()
+  assert.equal(calls.confirmPending[0].origin, 'Termómetro')
+})
+
+test('si guardar de una vez falla por hora futura, sigue con la confirmación normal', async () => {
+  const { engine, bag, spoken, calls } = makeWorld({
+    autoSave: true,
+    api: {
+      sendMessage: async () => fullReply,
+      confirmPending: async () => { throw Object.assign(new Error('La fecha de medición no puede estar en el futuro.'), { status: 422 }) },
+    },
+  })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('temperatura 40 con un termómetro a las 11 pm')
+  await tick()
+  assert.deepEqual(calls.saved, [])
+  assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
+  assert.match(spoken.at(-1), /¿Lo guardo\?/)
+})
+
+const batchReply = {
+  status: 'needs_confirmation',
+  pending_id: '33333333-3333-3333-3333-333333333333',
+  message: 'Confirma tus lecturas.',
+  candidate: {
+    kind: 'batch',
+    measurements: [
+      { kind: 'measurement', metric: 'heart_rate', values: [80], unit: 'lpm' },
+      { kind: 'measurement', metric: 'temperature', values: [37], unit: '°C' },
+    ],
+    explicit_origin: false,
+    explicit_time: false,
+  },
+}
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+test('varias lecturas seguidas se juntan tras 3 s de silencio y se guardan de una vez', async () => {
+  const { engine, bag, spoken, calls } = makeWorld({
+    api: { sendMessage: async () => batchReply },
+    autoSave: true,
+    settleMs: 60,
+  })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+
+  bag.current.say('pulso 80 lpm')
+  await wait(25)
+  assert.equal(calls.sendMessage.length, 0, 'sigue esperando: aún no pasó la ventana de silencio')
+  bag.current.say('temperatura 37 grados centígrados')
+  await wait(40)
+  assert.equal(calls.sendMessage.length, 0, 'hablar de nuevo reinicia la ventana')
+
+  await wait(80)
+  await tick()
+  assert.deepEqual(calls.sendMessage, ['pulso 80 lpm temperatura 37 grados centígrados'])
+  assert.equal(calls.confirmPending.length, 1)
+  assert.equal(calls.confirmPending[0].origin, 'Dato declarado por voz')
+  assert.deepEqual(calls.saved, [1])
+  assert.match(spoken.at(-1), /ya guardé 2 lecturas: pulso 80 latidos por minuto, temperatura 37 grados Celsius/)
+  assert.match(spoken.at(-1), /seguir con más mediciones/)
+  assert.equal(engine.getState().status, STATUS.LISTENING)
+})
+
+test('un síntoma dictado no se guarda solo: pide confirmación, no el instrumento', async () => {
+  const symptom = {
+    status: 'needs_confirmation',
+    pending_id: '44444444-4444-4444-4444-444444444444',
+    message: 'Revisa.',
+    candidate: { kind: 'symptom', original_text: 'me duele la cabeza' },
+  }
+  const { engine, bag, calls } = makeWorld({ api: { sendMessage: async () => symptom }, autoSave: true })
+  engine.start()
+  await tick()
+  bag.current.say('Astra')
+  await tick()
+  bag.current.say('me duele la cabeza')
+  await tick()
+  assert.equal(calls.confirmPending.length, 0)
+  assert.equal(engine.getState().status, STATUS.AWAIT_CONFIRM)
 })

@@ -6,7 +6,7 @@ import {
 import Panel from '../components/ui/Panel'
 import {
   createJournalEntry, createReminder, deleteJournalEntry, deleteReminder,
-  getCheckIns, getRewards, listJournalEntries, listReminders,
+  getCheckIns, getRewards, loadSyntheticMind, listJournalEntries, listReminders,
   recordWellnessAction, saveCheckIn, updateJournalEntry, updateReminder,
 } from '../api/client'
 import { localDateKey } from '../data/format'
@@ -25,7 +25,15 @@ const HISTORY_SERIES = [
   { key: 'mood_score', label: 'Ánimo', color: '#37e3ff' },
   { key: 'stress', label: 'Estrés', color: '#9a78ff' },
   { key: 'isolation', label: 'Aislamiento', color: '#3b9fff' },
+  { key: 'concentration', label: 'Concentración', color: '#46d9bd' },
+  { key: 'energy', label: 'Energía', color: '#f7c76a' },
+  { key: 'sleep_difficulty', label: 'Dificultad para dormir', color: '#f287b7' },
 ]
+const SERIES_EN = {
+  mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation', concentration: 'Concentration',
+  energy: 'Energy', sleep_difficulty: 'Trouble sleeping',
+}
+const SCALE_NAME_EN = { stress: 'Stress', isolation: 'Isolation', concentration: 'Concentration', energy: 'Energy', sleep_difficulty: 'Trouble sleeping' }
 
 const emptyCheckIn = { mood_score: '', mood_word: '', stress: '', isolation: '', concentration: '', energy: '', sleep_difficulty: '' }
 const todayKey = () => localDateKey(new Date().toISOString())
@@ -162,7 +170,7 @@ function HistoryChart({ checkIns, range, now }) {
   return (
     <div className="mind-chart-wrap">
       <div className="mind-chart-legend">
-        {HISTORY_SERIES.map((item) => <span key={item.key}><i style={{ backgroundColor: item.color }} />{language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}</span>)}
+        {HISTORY_SERIES.map((item) => <span key={item.key}><i style={{ backgroundColor: item.color }} />{language === 'en' ? SERIES_EN[item.key] : item.label}</span>)}
       </div>
       <div className="mind-chart-viewport">
         <svg className="mind-line-chart" viewBox="0 0 750 250" role="img" aria-label={range === 1 ? tr('Historial real de las últimas 24 horas.', 'Real history for the last 24 hours.') : tr(`Historial real de los últimos ${range} días. Los días sin datos quedan vacíos.`, `Real history for the last ${range} days. Days without data remain empty.`)}>
@@ -173,7 +181,7 @@ function HistoryChart({ checkIns, range, now }) {
           {chart.labels.map((day) => <text className="mind-chart-axis mind-chart-day" key={day.key} x={day.x} y="239" textAnchor={day.x === chart.left ? 'start' : day.x === chart.right ? 'end' : 'middle'}>{day.label}</text>)}
           {chart.series.map((item) => <g key={item.key}>
             <path className="mind-chart-line" d={item.path} stroke={item.color} />
-            {item.points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={range === 7 ? 5 : 3.5} fill={item.color}><title>{`${language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}: ${point.value} · ${point.date}`}</title></circle>)}
+            {item.points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={range === 7 ? 5 : 3.5} fill={item.color}><title>{`${language === 'en' ? SERIES_EN[item.key] : item.label}: ${point.value} · ${point.date}`}</title></circle>)}
           </g>)}
         </svg>
         {!hasData && <p className="mind-chart-empty">{range === 1 ? tr('Sin check-ins guardados en las últimas 24 horas.', 'No check-ins saved in the last 24 hours.') : tr('Aquí aparecerá tu historial cuando guardes un check-in.', 'Your history will appear here after you save a check-in.')}</p>}
@@ -198,6 +206,7 @@ export default function MindTrackerPage({ onNotify }) {
   const [breathingSeconds, setBreathingSeconds] = useState(0)
   const [pauseCompleted, setPauseCompleted] = useState(false)
   const [saving, setSaving] = useState(false)
+const scaleQueue = useRef(Promise.resolve())
   const [historyRange, setHistoryRange] = useState(1)
 const [historyNow, setHistoryNow] = useState(() => Date.now())
   const [dictating, setDictating] = useState(false)
@@ -339,6 +348,41 @@ const [historyNow, setHistoryNow] = useState(() => Date.now())
     setCheckIn(selected ? { ...emptyCheckIn, ...selected } : emptyCheckIn)
   }
 
+  // Cada vez que cambia una escala se guarda de una vez (en orden) y se avisa.
+  // El check-in necesita ánimo y palabra; sin ellos la escala queda en pantalla
+  // y se guardará junto con el check-in.
+  const handleLoadDemo = async () => {
+    try {
+      const result = await loadSyntheticMind()
+      await loadMindData(checkInDate)
+      onNotify?.(tr(`Datos de prueba de bienestar cargados (${result.check_ins} días).`, `Wellbeing demo data loaded (${result.check_ins} days).`))
+    } catch (error) { onNotify?.(error.message) }
+  }
+
+  const handleScaleChange = (item, value) => {
+    const next = { ...checkIn, [item.key]: value }
+    setCheckIn(next)
+    if (!next.mood_score || !next.mood_word) {
+      onNotify?.(tr('Elige primero el ánimo y una palabra: así se guardan también tus escalas.', 'First choose a mood level and a word so your scales can be saved too.'))
+      return
+    }
+    const payload = { mood_score: Number(next.mood_score), mood_word: next.mood_word }
+    for (const { key } of SCALE_FIELDS) if (next[key]) payload[key] = Number(next[key])
+    const name = language === 'en' ? SCALE_NAME_EN[item.key] : item.label
+    const date = checkInDate
+    scaleQueue.current = scaleQueue.current.then(async () => {
+      try {
+        const result = await saveCheckIn(date, payload)
+        const saved = result.check_in
+        setCheckIns((list) => [...list.filter((entry) => entry.date !== date), saved].sort((a, b) => a.date.localeCompare(b.date)))
+        setCheckIn((current) => ({ ...current, id: saved.id }))
+        onNotify?.(value
+          ? tr(`Guardado: ${name} = ${value}.`, `Saved: ${name} = ${value}.`)
+          : tr(`Guardado: ${name} sin responder.`, `Saved: ${name} left unanswered.`))
+      } catch (error) { onNotify?.(error.message) }
+    })
+  }
+
   const handleSaveCheckIn = async () => {
     if (!checkIn.mood_score || !checkIn.mood_word) {
       onNotify?.(tr('Elige un nivel de ánimo y una palabra. Las demás escalas son opcionales.', 'Choose a mood level and a word. Other scales are optional.'))
@@ -454,12 +498,12 @@ const [historyNow, setHistoryNow] = useState(() => Date.now())
         </Panel>
 
         <Panel className="mind-scales-card">
-          <div className="mind-card-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {tr('ESCALAS OPCIONALES', 'OPTIONAL SCALES')}</span></div>
+          <div className="mind-card-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {tr('ESCALAS OPCIONALES', 'OPTIONAL SCALES')}</span><small className="mind-history-note">{tr('Se guardan al cambiarlas', 'Saved when you change them')}</small></div>
           <div className="mind-scales">
             {SCALE_FIELDS.map((item) => <label className="mind-scale-input" key={item.key}>
               <item.icon aria-hidden="true" className="mind-scale-icon" size={21} />
-              <span><strong>{language === 'en' ? ({ stress: 'Stress', isolation: 'Isolation', concentration: 'Concentration', energy: 'Energy', sleep_difficulty: 'Trouble sleeping' }[item.key]) : item.label}</strong><small>{language === 'en' ? ({ stress: '1 = none · 5 = very high', isolation: '1 = none · 5 = very high', concentration: '1 = very hard · 5 = very easy', energy: '1 = very low · 5 = very high', sleep_difficulty: '1 = none · 5 = a lot' }[item.key]) : `${item.low} · ${item.high}`}</small></span>
-              <select value={checkIn[item.key]} onChange={(event) => updateCheckIn(item.key, event.target.value)}><option value="">{tr('Sin responder', 'No answer')}</option>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value}</option>)}</select>
+              <span><strong>{language === 'en' ? SCALE_NAME_EN[item.key] : item.label}</strong><small>{language === 'en' ? ({ stress: '1 = none · 5 = very high', isolation: '1 = none · 5 = very high', concentration: '1 = very hard · 5 = very easy', energy: '1 = very low · 5 = very high', sleep_difficulty: '1 = none · 5 = a lot' }[item.key]) : `${item.low} · ${item.high}`}</small></span>
+              <select value={checkIn[item.key]} onChange={(event) => handleScaleChange(item, event.target.value)}><option value="">{tr('Sin responder', 'No answer')}</option>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value}</option>)}</select>
             </label>)}
           </div>
         </Panel>
@@ -483,7 +527,7 @@ const [historyNow, setHistoryNow] = useState(() => Date.now())
 
       <div className="mind-bottom-grid">
         <Panel className="mind-weekly-card">
-          <div className="mind-card-heading mind-history-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {historyRange === 1 ? tr('HISTORIAL · ÚLTIMAS 24 HORAS', 'HISTORY · LAST 24 HOURS') : <>{tr('HISTORIAL · ÚLTIMOS', 'HISTORY · LAST')} {historyRange} {tr('DÍAS', 'DAYS')}</>}</span><div className="mind-range-tabs" role="group" aria-label={tr('Período del historial', 'History period')}>{[1, 7, 30, 90].map((range) => <button type="button" key={range} className={historyRange === range ? 'is-selected' : ''} onClick={() => { setHistoryNow(Date.now()); setHistoryRange(range) }} aria-pressed={historyRange === range}>{range === 1 ? '24 h' : `${range} ${tr('días', 'days')}`}</button>)}</div></div>
+          <div className="mind-card-heading mind-history-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {historyRange === 1 ? tr('HISTORIAL · ÚLTIMAS 24 HORAS', 'HISTORY · LAST 24 HOURS') : <>{tr('HISTORIAL · ÚLTIMOS', 'HISTORY · LAST')} {historyRange} {tr('DÍAS', 'DAYS')}</>}</span><button type="button" className="mind-demo-button" onClick={handleLoadDemo}>{tr('Cargar datos de prueba', 'Load demo data')}</button><div className="mind-range-tabs" role="group" aria-label={tr('Período del historial', 'History period')}>{[1, 7, 30, 90].map((range) => <button type="button" key={range} className={historyRange === range ? 'is-selected' : ''} onClick={() => { setHistoryNow(Date.now()); setHistoryRange(range) }} aria-pressed={historyRange === range}>{range === 1 ? '24 h' : `${range} ${tr('días', 'days')}`}</button>)}</div></div>
           <p className="mind-history-note">{historyRange === 1 ? tr('En 24 h cada check-in aparece a la hora en que lo guardaste. No se estiman horas sin registro.', 'In 24 h each check-in appears at the time you saved it. Hours without records are not estimated.') : tr('Cada gráfica usa tus check-ins. Un día sin respuesta queda vacío, nunca se convierte en cero.', 'Charts use your check-ins. A day without an answer stays empty; it is never shown as zero.')}</p>
           <HistoryChart checkIns={checkIns} range={historyRange} now={historyNow} />
         </Panel>

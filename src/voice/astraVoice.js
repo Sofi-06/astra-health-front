@@ -2,7 +2,8 @@
 //
 // Flujo: botón "Activar Astra" -> escucha de la palabra clave "Astra" ->
 // "Lista para escucharte" -> turnos hablados contra el backend (/messages,
-// /confirmations, /pending). Toda lectura se confirma por voz (origen + sí/no)
+// /confirmations, /pending). Las lecturas dictadas se guardan solas al terminar el turno
+// (tras una ventana de silencio); un síntoma o comentario sí pide un sí/no. El instrumento es opcional
 // antes de guardarse; nada se guarda solo.
 //
 // Es intencionalmente independiente de React: las dependencias (reconocimiento
@@ -105,6 +106,9 @@ function spokenValue(candidate) {
 }
 
 // Frase hablable de lo entendido, sin evaluar si la cifra es normal o no.
+// Origen que se anota cuando la lectura se dicta sin nombrar el instrumento.
+const VOICE_ORIGIN = 'Dato declarado por voz'
+
 export function describeCandidate(candidate) {
   if (!candidate) return ''
   if (candidate.kind === 'batch') {
@@ -143,6 +147,8 @@ export function createAstraVoice({
   onSaved = () => {},
   now = () => new Date(),
   wakeRestartMs = 350,
+  settleMs = 3000, // silencio que se espera tras hablar, por si la persona sigue midiéndose
+  autoSave = true, // las lecturas dictadas se guardan al terminar el turno, sin pedir sí/no
 } = {}) {
   let status = STATUS.OFF
   let detail = ''
@@ -153,6 +159,7 @@ export function createAstraVoice({
   let pending = null // { pendingId, candidate, origin, unclear }
   let noSpeechRetries = 0
   let restartTimer = null
+  let settleTimer = null
 
   const snapshot = () => ({
     status,
@@ -178,6 +185,10 @@ export function createAstraVoice({
     if (restartTimer) {
       clearTimeout(restartTimer)
       restartTimer = null
+    }
+    if (settleTimer) {
+      clearTimeout(settleTimer)
+      settleTimer = null
     }
   }
 
@@ -247,13 +258,44 @@ export function createAstraVoice({
   }
 
   // Escucha UN turno hablado y llama onFinal con el texto definitivo.
+  // Para tomar lecturas (handleUtterance) se deja una ventana de silencio: cada vez
+  // que la persona habla se reinicia, y solo al pasar `settleMs` sin voz se procesa
+  // todo lo dicho junto. Así puede seguir midiéndose y dictando signos uno tras otro.
   const listenTurn = (state, onFinal) => {
     closeRecognition()
-    setState(state)
-    const rec = speech.createRecognition('turn')
+    const settle = onFinal === handleUtterance ? settleMs : 0
+    setState(state, settle > 0 ? 'Te escucho. Puedes dictar varios signos seguidos; espero unos segundos de silencio antes de guardar.' : '')
+    const rec = speech.createRecognition(settle > 0 ? 'collect' : 'turn')
     recognition = rec
     let gotFinal = false
+    let collected = ''
+    let interim = ''
+    const finishCollect = () => {
+      settleTimer = null
+      if (recognition !== rec) return
+      const text = (collected || interim).trim()
+      rec.onresult = null
+      rec.onerror = null
+      try { rec.stop() } catch { /* ya detenido */ }
+      if (!text) return
+      onFinal(text)
+    }
     rec.onresult = (event) => {
+      if (settle > 0) {
+        noSpeechRetries = 0
+        if (event.isFinal) {
+          gotFinal = true
+          collected = `${collected} ${event.transcript}`.trim()
+          interim = ''
+        } else {
+          interim = event.transcript.trim()
+        }
+        lastUserText = `${collected} ${interim}`.trim()
+        onUpdate(snapshot())
+        if (settleTimer) clearTimeout(settleTimer)
+        settleTimer = setTimeout(finishCollect, settle)
+        return
+      }
       if (event.isFinal) {
         gotFinal = true
         noSpeechRetries = 0
@@ -326,7 +368,7 @@ export function createAstraVoice({
     setState(STATUS.THINKING, 'Astra está procesando lo que dijiste…')
     let data
     try {
-      data = await api.sendMessage(text)
+      data = await api.sendMessage(text, { voice: true })
     } catch (caught) {
       await say(caught?.message || 'No pude hablar con el servidor. Inténtalo de nuevo.')
       if (stopping) return
@@ -336,9 +378,49 @@ export function createAstraVoice({
     if (data.status === 'needs_confirmation' && data.pending_id && data.candidate) {
       pending = { pendingId: data.pending_id, candidate: data.candidate, origin: '', unclear: 0 }
       const summary = describeCandidate(data.candidate)
-      await say(`Entendí ${summary}. Antes de guardar nada: ¿con qué instrumento o de qué origen es la medición?`)
+      const cand = data.candidate
+      const isReading = cand.kind === 'measurement' || cand.kind === 'batch'
+      const spokenOrigin = isReading && cand.explicit_origin ? String(cand.suggested_origin || '').trim().slice(0, 120) : ''
+      const spokenWhen = isReading && cand.explicit_time && cand.suggested_measured_at ? new Date(cand.suggested_measured_at) : null
+      const hasSpokenTime = Boolean(spokenWhen && !Number.isNaN(spokenWhen.getTime()))
+
+      // Una o varias lecturas dictadas: se guardan de una vez al terminar el turno.
+      // Si no dijo el instrumento se anota "Dato declarado por voz" (no se inventa uno)
+      // y si no dijo la hora, se usa el momento actual.
+      if (autoSave && isReading) {
+        setState(STATUS.THINKING, 'Guardando lo que dijiste…')
+        const when = hasSpokenTime ? spokenWhen : now()
+        try {
+          const saved = await api.confirmPending({
+            pending_id: data.pending_id,
+            origin: spokenOrigin.length >= 2 ? spokenOrigin : VOICE_ORIGIN,
+            context: '',
+            measured_at: when.toISOString(),
+          })
+          pending = null
+          onSaved(saved.entries?.length || 1)
+          const clock = when.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+          await say(`Listo, ya guardé ${summary}${spokenOrigin.length >= 2 ? `, medido con ${spokenOrigin}` : ''}${hasSpokenTime ? ` a las ${clock}` : ''}. Puedes seguir con más mediciones.`)
+          if (stopping) return
+          listenTurn(STATUS.LISTENING, handleUtterance)
+          return
+        } catch (caught) {
+          if (caught?.status === 409) {
+            pending = null
+            await say('La propuesta venció antes de guardarse, así que no guardé nada. Dime las lecturas de nuevo.')
+            if (stopping) return
+            listenTurn(STATUS.LISTENING, handleUtterance)
+            return
+          }
+          // Por ejemplo, una hora futura: se sigue con la confirmación normal.
+        }
+      }
+
+      // El instrumento es opcional: no se pregunta. Solo se pide confirmar.
+      pending.origin = spokenOrigin
+      await say(`Entendí ${summary}${spokenOrigin ? `, medido con ${spokenOrigin}` : ''}. ¿Lo guardo? Puedes decir sí o no.`)
       if (stopping) return
-      listenTurn(STATUS.AWAIT_ORIGIN, handleOrigin)
+      listenTurn(STATUS.AWAIT_CONFIRM, handleConfirm)
       return
     }
     // needs_clarification, safety_notice o information: se dice tal cual llega
@@ -348,26 +430,11 @@ export function createAstraVoice({
     listenTurn(STATUS.LISTENING, handleUtterance)
   }
 
-  const handleOrigin = async (text) => {
+  const handleConfirm = async (text) => {
     if (isExit(text)) {
       await exitToWake()
       return
     }
-    const origin = text.trim()
-    if (origin.length < 2) {
-      await say('Necesito el instrumento u origen, por ejemplo "pulsómetro" o "termómetro". ¿Cuál fue?')
-      if (stopping) return
-      listenTurn(STATUS.AWAIT_ORIGIN, handleOrigin)
-      return
-    }
-    pending.origin = origin.slice(0, 120)
-    const summary = describeCandidate(pending.candidate)
-    await say(`Voy a guardar ${summary}, con origen ${pending.origin}. ¿Lo confirmas? Puedes decir sí o no.`)
-    if (stopping) return
-    listenTurn(STATUS.AWAIT_CONFIRM, handleConfirm)
-  }
-
-  const handleConfirm = async (text) => {
     if (isAffirmative(text)) {
       const current = pending
       setState(STATUS.THINKING, 'Guardando tu confirmación por voz…')

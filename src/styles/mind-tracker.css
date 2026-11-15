@@ -346,3 +346,9 @@
   .mind-breath.is-running { animation: none; }
   .mind-score-options button { transition: none; }
 }
+
+.mind-demo-button {
+  padding: 4px 12px; border: 1px dashed rgba(75, 145, 194, .6); border-radius: 12px;
+  background: transparent; color: #9cc4dd; font-size: .7rem; cursor: pointer;
+}
+.mind-demo-button:hover { border-style: solid; color: #aee8ff; }
