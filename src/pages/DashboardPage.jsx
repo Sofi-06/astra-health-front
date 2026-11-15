@@ -98,14 +98,14 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
   )
 
   const renderPage = () => {
-    if (activePage === 'Health Monitor') return <HealthMonitorPage onNotify={onNotify} />
+    if (activePage === 'Health Monitor') return <HealthMonitorPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} />
     if (activePage === 'Mind Tracker') return <MindTrackerPage onNotify={onNotify} />
     if (activePage === 'Body Explorer') return <BodyExplorerPage onNotify={onNotify} />
     if (activePage === 'Space Health Insights') {
       return <SpaceHealthInsightsPage onNotify={onNotify} sessionDay={sessionDay} />
     }
     if (activePage === 'Smart Alerts') {
-      return <SmartAlertsPage onNotify={onNotify} />
+      return <SmartAlertsPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} />
     }
     if (activePage === 'Mission Challenges') {
       return <MissionChallengesPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} sessionDay={sessionDay} />
