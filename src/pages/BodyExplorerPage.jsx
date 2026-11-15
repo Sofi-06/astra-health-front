@@ -6,7 +6,7 @@ import { Activity, Brain, CircleDot, FileDown, Heart, Plus, UserRound, Waves } f
 import * as THREE from 'three'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
-import { listEntries, recordWellnessAction } from '../api/client'
+import { getCheckIns, listEntries, recordWellnessAction } from '../api/client'
 import { formatValue, formatWhen, localDateKey } from '../data/format'
 import { downloadReportPdf } from '../data/reportPdf'
 import { useLanguage } from '../app/LanguageContext'
@@ -382,7 +382,8 @@ export default function BodyExplorerPage({ onNotify, onOpenVitals }) {
   const handleReportPdf = async () => {
     setBusyPdf(true)
     try {
-      await downloadReportPdf({ entries, range: reportRange, language })
+      const checkIns = await getCheckIns(Math.max(7, reportRange)).then((d) => d.check_ins || []).catch(() => [])
+      await downloadReportPdf({ entries, range: reportRange, language, checkIns })
       onNotify?.(tr('Informe PDF descargado.', 'PDF report downloaded.'))
     } catch (error) {
       onNotify?.(error.message || tr('No se pudo generar el PDF.', 'Could not generate the PDF.'))

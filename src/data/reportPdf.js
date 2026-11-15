@@ -318,7 +318,8 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
       .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
     const label = clean(en ? METRIC_LABELS_EN[code] || code : METRIC_LABELS[code] || code)
     const unit = rows.length ? [...rows.reduce((m, e) => m.set(e.candidate.unit, (m.get(e.candidate.unit) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1])[0][0] : ''
-    const pts = rows.filter((e) => e.candidate.unit === unit).map((e) => ({ t: new Date(e.measured_at).getTime(), v: Number(e.candidate.values[0]) }))
+    const pts = rows.filter((e) => e.candidate.unit === unit).map((e) => ({ t: new Date(e.measured_at).getTime(), v: Number(e.candidate.values?.[0]) }))
+      .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v))
     const h = 30
     ensure(h + 16)
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(40, 40, 40)
@@ -376,5 +377,14 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
     'This report summarizes only data confirmed by the person. It is not a diagnosis or medical evaluation and is not sent automatically to anyone.',
   ), 8, [120, 120, 120])
 
-  doc.save(`astra-health-informe-${localDateKey(new Date(now).toISOString())}.pdf`)
+  const fileName = `astra-health-informe-${localDateKey(new Date(now).toISOString())}.pdf`
+  // Descarga explícita con un enlace temporal: funciona aunque doc.save() sea bloqueado.
+  const url = URL.createObjectURL(doc.output('blob'))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  window.setTimeout(() => { link.remove(); URL.revokeObjectURL(url) }, 4000)
 }
