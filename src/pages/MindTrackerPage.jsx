@@ -1,147 +1,426 @@
-import { useId, useMemo, useState } from 'react'
-import { LockKeyhole } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Activity, BarChart3, Bell, CalendarDays, Check, ChevronDown, Edit3,
+  Heart, LockKeyhole, Mic, MicOff, NotebookPen, Pause, Play, Sparkles, Square, Trash2, Volume2, VolumeX,
+} from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import {
+  createJournalEntry, createReminder, deleteJournalEntry, deleteReminder,
+  getCheckIns, getRewards, listJournalEntries, listReminders,
+  recordWellnessAction, saveCheckIn, updateJournalEntry, updateReminder,
+} from '../api/client'
+import { localDateKey } from '../data/format'
+import { useLanguage } from '../app/LanguageContext'
 
-const moodOptions = {
-  Agotado: { mood: 'Cansado', score: 2 },
-  Tenso: { mood: 'Tenso', score: 2 },
-  'Extraño casa': { mood: 'Nostálgico', score: 3 },
-}
-
-const dailyScales = [
-  { label: 'Estrés', value: 4, warm: true },
-  { label: 'Aislamiento', value: 3 },
-  { label: 'Concentración', value: 2 },
-  { label: 'Energía', value: 2 },
-  { label: 'Sueño difícil', value: 4, warm: true },
+const MOOD_WORDS = ['Cansado', 'Tranquilo', 'Tenso', 'Con energía', 'Nostálgico']
+const MOOD_FACES = ['☹', '🙁', '😐', '🙂', '☺']
+const SCALE_FIELDS = [
+  { key: 'stress', label: 'Estrés', low: '1 = nada', high: '5 = muy alto', icon: Sparkles },
+  { key: 'isolation', label: 'Aislamiento', low: '1 = nada', high: '5 = muy alto', icon: Heart },
+  { key: 'concentration', label: 'Concentración', low: '1 = muy difícil', high: '5 = muy fácil', icon: Activity },
+  { key: 'energy', label: 'Energía', low: '1 = muy baja', high: '5 = muy alta', icon: BarChart3 },
+  { key: 'sleep_difficulty', label: 'Dificultad para dormir', low: '1 = ninguna', high: '5 = mucha', icon: Pause },
+]
+const HISTORY_SERIES = [
+  { key: 'mood_score', label: 'Ánimo', color: '#37e3ff' },
+  { key: 'stress', label: 'Estrés', color: '#9a78ff' },
+  { key: 'isolation', label: 'Aislamiento', color: '#3b9fff' },
 ]
 
-const weeklyCharts = [
-  { title: 'Ánimo (1-5)', data: [4, 4, 3.5, 3, 3, 2, 2], color: '#a28cff' },
-  { title: 'Estrés (1-5)', data: [2, 2, 3, 3, 4, 4, 4], color: '#ff9b78' },
-  { title: 'Aislamiento (1-5)', data: [2, 2, 2, 3, 3, 3, 3], color: '#5cecff' },
-]
-
-function smoothPath(points) {
-  return points.reduce((path, point, index) => {
-    if (index === 0) return `M ${point[0]} ${point[1]}`
-    const previous = points[index - 1]
-    const beforePrevious = points[index - 2] ?? previous
-    const next = points[index + 1] ?? point
-    const controlOneX = previous[0] + (point[0] - beforePrevious[0]) / 6
-    const controlOneY = previous[1] + (point[1] - beforePrevious[1]) / 6
-    const controlTwoX = point[0] - (next[0] - previous[0]) / 6
-    const controlTwoY = point[1] - (next[1] - previous[1]) / 6
-    return `${path} C ${controlOneX} ${controlOneY}, ${controlTwoX} ${controlTwoY}, ${point[0]} ${point[1]}`
-  }, '')
+const emptyCheckIn = { mood_score: '', mood_word: '', stress: '', isolation: '', concentration: '', energy: '', sleep_difficulty: '' }
+const todayKey = () => localDateKey(new Date().toISOString())
+const localDateTimeValue = (iso) => {
+  const value = new Date(iso)
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
-function MoodOrb({ mood, score }) {
-  return (
-    <div className="mind-orb" role="img" aria-label={`${mood}, ánimo ${score} de 5`}>
-      <strong>{mood}</strong>
-      <span>ánimo {score} de 5</span>
-    </div>
-  )
+function createMeditationAudio() {
+  if (typeof window === 'undefined') return null
+  const audio = new Audio('/assets/MusicaMeditar.mp3')
+  audio.loop = true
+  audio.volume = 0.55
+  return audio
 }
 
-function ScaleRow({ item }) {
-  return (
-    <div className="mind-scale-row">
-      <div><span>{item.label}</span><small>{item.value}/5</small></div>
-      <div className="mind-scale-track"><i className={item.warm ? 'is-warm' : ''} style={{ width: `${item.value * 20}%` }} /></div>
-    </div>
-  )
+function recentDays(count, language) {
+  return Array.from({ length: count }, (_, index) => {
+    const day = new Date()
+    day.setHours(12, 0, 0, 0)
+    day.setDate(day.getDate() - (count - 1 - index))
+    return {
+      key: localDateKey(day.toISOString()),
+      label: count === 7
+        ? day.toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO', { weekday: 'short' }).replace('.', '')
+        : day.toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO', { day: 'numeric', month: 'short' }).replace('.', ''),
+    }
+  })
 }
 
-function WeeklyChart({ chart }) {
-  const gradientId = useId().replace(/:/g, '')
-  const width = 250
-  const height = 235
-  const left = 25
-  const right = 8
-  const top = 12
-  const bottom = 27
-  const points = useMemo(() => chart.data.map((value, index) => [
-    left + (index / (chart.data.length - 1)) * (width - left - right),
-    top + (1 - (value - 1) / 4) * (height - top - bottom),
-  ]), [chart.data])
-  const line = smoothPath(points)
-  const area = `${line} L ${points.at(-1)[0]} ${height - bottom} L ${points[0][0]} ${height - bottom} Z`
-  const last = points.at(-1)
+function HistoryChart({ checkIns, range }) {
+  const { language, tr } = useLanguage()
+  const days = useMemo(() => recentDays(range, language), [range, language])
+  const byDate = useMemo(() => new Map(checkIns.map((item) => [item.date, item])), [checkIns])
+  const chart = useMemo(() => {
+    const left = 34
+    const right = 718
+    const top = 15
+    const bottom = 207
+    const x = (index) => left + (index / Math.max(1, days.length - 1)) * (right - left)
+    const y = (value) => bottom - ((value - 1) / 4) * (bottom - top)
+    const series = HISTORY_SERIES.map((meta) => {
+      let path = ''
+      let previous = false
+      const points = []
+      days.forEach((day, index) => {
+        const raw = byDate.get(day.key)?.[meta.key]
+        const value = raw === '' || raw == null ? NaN : Number(raw)
+        if (!Number.isFinite(value) || value < 1 || value > 5) {
+          previous = false
+          return
+        }
+        const point = { x: x(index), y: y(value), value, date: day.key }
+        points.push(point)
+        path += `${previous ? ' L' : ' M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+        previous = true
+      })
+      return { ...meta, path: path.trim(), points }
+    })
+    const labels = days.map((day, index) => ({ ...day, x: x(index) }))
+      .filter((_, index) => range === 7 || index === 0 || index === range - 1 || index % Math.ceil(range / 5) === 0)
+    return { series, labels, left, right, top, bottom }
+  }, [byDate, days, range])
+  const hasData = chart.series.some((item) => item.points.length > 0)
 
   return (
-    <div className="mind-weekly-chart">
-      <span>{chart.title}</span>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={chart.title}>
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={chart.color} stopOpacity=".35" /><stop offset="1" stopColor={chart.color} stopOpacity=".04" /></linearGradient></defs>
-        {[1, 2, 3, 4, 5].map((tick) => {
-          const y = top + (1 - (tick - 1) / 4) * (height - top - bottom)
-          return <g key={tick}><line x1={left} x2={width - right} y1={y} y2={y} className="mind-chart-grid" /><text x="0" y={y + 3} className="mind-chart-label">{tick.toFixed(1)}</text></g>
-        })}
-        <path d={area} fill={`url(#${gradientId})`} />
-        <path d={line} fill="none" stroke={chart.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx={last[0]} cy={last[1]} r="8" fill={chart.color} opacity=".22" /><circle cx={last[0]} cy={last[1]} r="4" fill="#efffff" stroke={chart.color} strokeWidth="2.5" />
-        {['Lun', 'Mié', 'Vie', 'Dom'].map((label, index) => <text key={label} x={left + index * ((width - left - right) / 3)} y={height - 6} textAnchor="middle" className="mind-chart-label">{label}</text>)}
-      </svg>
+    <div className="mind-chart-wrap">
+      <div className="mind-chart-legend">
+        {HISTORY_SERIES.map((item) => <span key={item.key}><i style={{ backgroundColor: item.color }} />{language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}</span>)}
+      </div>
+      <div className="mind-chart-viewport">
+        <svg className="mind-line-chart" viewBox="0 0 750 250" role="img" aria-label={tr(`Historial real de los últimos ${range} días. Los días sin datos quedan vacíos.`, `Real history for the last ${range} days. Days without data remain empty.`)}>
+          {[1, 2, 3, 4, 5].map((value) => {
+            const y = chart.bottom - ((value - 1) / 4) * (chart.bottom - chart.top)
+            return <g key={value}><line className="mind-chart-gridline" x1={chart.left} x2={chart.right} y1={y} y2={y} /><text className="mind-chart-axis" x="11" y={y + 4}>{value}</text></g>
+          })}
+          {chart.labels.map((day) => <text className="mind-chart-axis mind-chart-day" key={day.key} x={day.x} y="239" textAnchor={day.x === chart.left ? 'start' : day.x === chart.right ? 'end' : 'middle'}>{day.label}</text>)}
+          {chart.series.map((item) => <g key={item.key}>
+            <path className="mind-chart-line" d={item.path} stroke={item.color} />
+            {item.points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={range === 7 ? 5 : 3.5} fill={item.color}><title>{`${language === 'en' ? ({ mood_score: 'Mood', stress: 'Stress', isolation: 'Isolation' }[item.key]) : item.label}: ${point.value} · ${point.date}`}</title></circle>)}
+          </g>)}
+        </svg>
+        {!hasData && <p className="mind-chart-empty">{tr('Aquí aparecerá tu historial cuando guardes un check-in.', 'Your history will appear here after you save a check-in.')}</p>}
+      </div>
     </div>
   )
 }
 
 export default function MindTrackerPage({ onNotify }) {
-  const [selectedMood, setSelectedMood] = useState('Agotado')
-  const [breathing, setBreathing] = useState(false)
-  const mood = moodOptions[selectedMood]
+  const { language, tr } = useLanguage()
+  const [checkIns, setCheckIns] = useState([])
+  const [checkInDate, setCheckInDate] = useState(todayKey())
+  const [checkIn, setCheckIn] = useState(emptyCheckIn)
+  const [journalEntries, setJournalEntries] = useState([])
+  const [journalForm, setJournalForm] = useState({ id: null, entry_date: todayKey(), text: '' })
+  const [reminders, setReminders] = useState([])
+  const [reminderForm, setReminderForm] = useState({ id: null, kind: 'pause', title: '', remind_at: '' })
+  const [reminderOpen, setReminderOpen] = useState(false)
+  const [breathing, setBreathing] = useState('idle')
+  const [breathingSeconds, setBreathingSeconds] = useState(0)
+  const [pauseCompleted, setPauseCompleted] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [historyRange, setHistoryRange] = useState(7)
+  const [dictating, setDictating] = useState(false)
+  const [dictationMessage, setDictationMessage] = useState('')
+  const recognitionRef = useRef(null)
+  const dictationBaseRef = useRef('')
+  const ambientRef = useRef(null)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const speechSupported = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
 
-  const chooseMood = (option) => {
-    setSelectedMood(option)
-    onNotify(`Check-in actualizado: ${option}.`)
+  useEffect(() => () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      try { recognitionRef.current.stop() } catch { /* ya se detuvo */ }
+    }
+    if (ambientRef.current) {
+      try { ambientRef.current.pause() } catch {}
+      ambientRef.current = null
+    }
+  }, [])
+
+  const stopDictation = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null
+      try { recognitionRef.current.stop() } catch { /* ya se detuvo */ }
+    }
+    recognitionRef.current = null
+    setDictating(false)
+  }
+
+  const toggleDictation = () => {
+    if (dictating) { stopDictation(); return }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) return
+    const recognition = new SpeechRecognition()
+    recognition.lang = language === 'en' ? 'en-US' : 'es-CO'
+    recognition.continuous = true
+    recognition.interimResults = true
+    dictationBaseRef.current = journalForm.text.trim()
+    recognition.onresult = (event) => {
+      let transcript = ''
+      for (let index = 0; index < event.results.length; index += 1) transcript += event.results[index][0].transcript
+      setJournalForm((form) => ({ ...form, text: [dictationBaseRef.current, transcript.trim()].filter(Boolean).join(' ') }))
+    }
+    recognition.onerror = (event) => {
+      setDictationMessage(event.error === 'not-allowed' ? tr('Permite el micrófono para dictar. También puedes escribir.', 'Allow microphone access to dictate. You can also type.') : tr('El dictado se interrumpió; el texto ya capturado sigue editable.', 'Dictation stopped; captured text remains editable.'))
+    }
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) { recognitionRef.current = null; setDictating(false) }
+    }
+    recognitionRef.current = recognition
+    try {
+      recognition.start()
+      setDictating(true)
+      setDictationMessage(tr('Escuchando… Detén el dictado para revisar el texto antes de guardarlo.', 'Listening… Stop dictation and review the text before saving.'))
+    } catch {
+      recognitionRef.current = null
+      setDictationMessage(tr('No se pudo iniciar el dictado en este navegador.', 'Could not start dictation in this browser.'))
+    }
+  }
+
+  const stopAmbient = () => {
+    if (ambientRef.current) {
+      try {
+        ambientRef.current.pause()
+        ambientRef.current.currentTime = 0
+      } catch {}
+    }
+  }
+
+  const pauseAmbient = () => {
+    if (ambientRef.current) {
+      try { ambientRef.current.pause() } catch {}
+    }
+  }
+
+  const playAmbient = () => {
+    if (!soundEnabled) return
+    try {
+      if (!ambientRef.current) ambientRef.current = createMeditationAudio()
+      ambientRef.current?.play().catch(() => {
+        onNotify?.(tr('Toca el botón de sonido para reproducir la música de meditación.', 'Tap sound button to start meditation music.'))
+      })
+    } catch {
+      onNotify?.(tr('No se pudo reproducir la música de meditación.', 'Could not play meditation music.'))
+    }
+  }
+
+  const toggleBreathing = () => {
+    if (breathing === 'running') {
+      pauseAmbient()
+      setBreathing('paused')
+    } else {
+      playAmbient()
+      setBreathing('running')
+    }
+  }
+
+  const toggleSound = () => {
+    if (soundEnabled) {
+      pauseAmbient()
+      setSoundEnabled(false)
+    } else {
+      setSoundEnabled(true)
+      if (breathing === 'running') {
+        try {
+          if (!ambientRef.current) ambientRef.current = createMeditationAudio()
+          ambientRef.current?.play().catch(() => {})
+        } catch {}
+      }
+    }
+  }
+
+  const loadMindData = async (selectedDate = checkInDate) => {
+    const [checkInData, journalData, reminderData, rewardData] = await Promise.all([
+      getCheckIns(3650), listJournalEntries(), listReminders(), getRewards(),
+    ])
+    const loadedCheckIns = checkInData.check_ins || []
+    setCheckIns(loadedCheckIns)
+    setJournalEntries(journalData.entries || [])
+    setReminders(reminderData.reminders || [])
+    setPauseCompleted(Boolean(rewardData.weekly_mission?.conditions?.find((item) => item.code === 'pause')?.complete))
+    const selected = loadedCheckIns.find((item) => item.date === selectedDate)
+    setCheckIn(selected ? { ...emptyCheckIn, ...selected } : emptyCheckIn)
+  }
+
+  useEffect(() => { loadMindData().catch((error) => onNotify?.(error.message)) }, [])
+
+  useEffect(() => {
+    if (breathing !== 'running') return undefined
+    const timer = window.setInterval(() => setBreathingSeconds((value) => value + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [breathing])
+
+  const updateCheckIn = (key, value) => setCheckIn((current) => ({ ...current, [key]: value }))
+  const selectCheckInDate = (value) => {
+    setCheckInDate(value)
+    const selected = checkIns.find((item) => item.date === value)
+    setCheckIn(selected ? { ...emptyCheckIn, ...selected } : emptyCheckIn)
+  }
+
+  const handleSaveCheckIn = async () => {
+    if (!checkIn.mood_score || !checkIn.mood_word) {
+      onNotify?.(tr('Elige un nivel de ánimo y una palabra. Las demás escalas son opcionales.', 'Choose a mood level and a word. Other scales are optional.'))
+      return
+    }
+    setSaving(true)
+    try {
+      const payload = { mood_score: Number(checkIn.mood_score), mood_word: checkIn.mood_word }
+      for (const { key } of SCALE_FIELDS) if (checkIn[key]) payload[key] = Number(checkIn[key])
+      const result = await saveCheckIn(checkInDate, payload)
+      await loadMindData(checkInDate)
+      onNotify?.(result.status === 'updated' ? tr('Check-in actualizado.', 'Check-in updated.') : tr('Check-in guardado.', 'Check-in saved.'))
+    } catch (error) { onNotify?.(error.message) }
+    finally { setSaving(false) }
+  }
+
+  const resetJournal = () => { stopDictation(); setJournalForm({ id: null, entry_date: todayKey(), text: '' }) }
+  const handleSaveJournal = async () => {
+    if (dictating) stopDictation()
+    if (!journalForm.text.trim()) return onNotify?.(tr('Escribe algo antes de guardar la entrada.', 'Write something before saving the entry.'))
+    try {
+      const payload = { entry_date: journalForm.entry_date, text: journalForm.text.trim() }
+      if (journalForm.id) await updateJournalEntry(journalForm.id, payload)
+      else await createJournalEntry(payload)
+      const data = await listJournalEntries()
+      setJournalEntries(data.entries || [])
+      resetJournal()
+      onNotify?.(tr('Entrada privada guardada.', 'Private entry saved.'))
+    } catch (error) { onNotify?.(error.message) }
+  }
+  const handleDeleteJournal = async (id) => {
+    try {
+      await deleteJournalEntry(id)
+      setJournalEntries((items) => items.filter((item) => item.id !== id))
+      if (journalForm.id === id) resetJournal()
+      onNotify?.(tr('Entrada eliminada.', 'Entry deleted.'))
+    } catch (error) { onNotify?.(error.message) }
+  }
+
+  const finishBreathing = async () => {
+    stopAmbient()
+    setBreathing('idle')
+    setBreathingSeconds(0)
+    try {
+      await recordWellnessAction('breathing_completed', todayKey())
+      onNotify?.(tr('Sesión de respiración finalizada voluntariamente.', 'Breathing session finished voluntarily.'))
+    } catch (error) { onNotify?.(error.message) }
+  }
+  const completePause = async () => {
+    try {
+      await recordWellnessAction('pause_completed', todayKey())
+      setPauseCompleted(true)
+      onNotify?.(tr('Pausa marcada como realizada.', 'Break marked as completed.'))
+    } catch (error) { onNotify?.(error.message) }
+  }
+
+  const resetReminder = () => {
+    setReminderForm({ id: null, kind: 'pause', title: '', remind_at: '' })
+    setReminderOpen(false)
+  }
+  const handleSaveReminder = async () => {
+    if (!reminderForm.title.trim() || !reminderForm.remind_at) return onNotify?.(tr('Completa el aviso y su fecha.', 'Enter a reminder and its date.'))
+    try {
+      const payload = { kind: reminderForm.kind, title: reminderForm.title.trim(), remind_at: new Date(reminderForm.remind_at).toISOString() }
+      if (reminderForm.id) await updateReminder(reminderForm.id, payload)
+      else await createReminder(payload)
+      const data = await listReminders()
+      setReminders(data.reminders || [])
+      resetReminder()
+      onNotify?.(tr('Recordatorio guardado. No se marcará como realizado automáticamente.', 'Reminder saved. It will not be marked completed automatically.'))
+    } catch (error) { onNotify?.(error.message) }
+  }
+  const handleDeleteReminder = async (id) => {
+    try {
+      await deleteReminder(id)
+      setReminders((items) => items.filter((item) => item.id !== id))
+      if (reminderForm.id === id) resetReminder()
+      onNotify?.(tr('Recordatorio eliminado.', 'Reminder deleted.'))
+    } catch (error) { onNotify?.(error.message) }
   }
 
   return (
-    <section className="mind-tracker" aria-label="Bienestar psicológico">
+    <section className="mind-tracker" aria-label={tr('Bienestar psicológico', 'Mental wellbeing')}>
       <div className="mind-top-grid">
         <Panel className="mind-checkin-card">
-          <span className="mind-kicker">CHECK-IN DE HOY</span>
-          <MoodOrb mood={mood.mood} score={mood.score} />
-          <p>¿Cómo te sientes hoy, Rivera?</p>
-          <div className="mind-mood-options">
-            {Object.keys(moodOptions).map((option) => <button key={option} className={selectedMood === option ? 'is-selected' : ''} onClick={() => chooseMood(option)}>{option}</button>)}
+          <div className="mind-card-heading">
+            <span className="mind-kicker"><Activity aria-hidden="true" /> {tr('CHECK-IN DIARIO', 'DAILY CHECK-IN')}</span>
+            <label className="mind-date-field"><CalendarDays aria-hidden="true" size={16} /><span className="sr-only">{tr('Fecha del check-in', 'Check-in date')}</span><input type="date" max={todayKey()} value={checkInDate} onChange={(event) => selectCheckInDate(event.target.value)} /></label>
+          </div>
+          <div className="mind-checkin-content">
+            <h2>{tr('¿Cómo te sientes hoy?', 'How are you feeling today?')}</h2>
+            <p>{tr('Elige tus respuestas. Nada aparece seleccionado de antemano.', 'Choose your answers. Nothing is preselected.')}</p>
+            <fieldset className="mind-choice-group mind-score-group">
+              <legend>{tr('Ánimo · 1 es muy bajo y 5 es muy alto', 'Mood · 1 is very low and 5 is very high')}</legend>
+              <div className="mind-score-options">
+                {MOOD_FACES.map((face, index) => <button key={index} className={Number(checkIn.mood_score) === index + 1 ? 'is-selected' : ''} onClick={() => updateCheckIn('mood_score', index + 1)} type="button" aria-label={tr(`Ánimo ${index + 1} de 5`, `Mood ${index + 1} of 5`)} aria-pressed={Number(checkIn.mood_score) === index + 1}><span aria-hidden="true">{face}</span><small>{index + 1}</small></button>)}
+              </div>
+            </fieldset>
+            <fieldset className="mind-choice-group mind-word-group">
+              <legend>{tr('Elige una palabra', 'Choose a word')}</legend>
+              <div className="mind-mood-options">
+                {MOOD_WORDS.map((word) => <button key={word} className={checkIn.mood_word === word ? 'is-selected' : ''} onClick={() => updateCheckIn('mood_word', word)} type="button" aria-pressed={checkIn.mood_word === word}>{language === 'en' ? ({ Cansado: 'Tired', Tranquilo: 'Calm', Tenso: 'Tense', 'Con energía': 'Energetic', Nostálgico: 'Nostalgic' }[word]) : word}</button>)}
+              </div>
+            </fieldset>
+            <button className="primary-button mind-save-button" onClick={handleSaveCheckIn} disabled={saving} type="button"><Check size={17} /> {saving ? tr('Guardando…', 'Saving…') : checkIn.id ? tr('Actualizar check-in', 'Update check-in') : tr('Guardar check-in', 'Save check-in')}</button>
           </div>
         </Panel>
 
         <Panel className="mind-scales-card">
-          <span className="mind-kicker">ESCALA DEL DÍA</span>
-          <div className="mind-scales">{dailyScales.map((item) => <ScaleRow key={item.label} item={item} />)}</div>
+          <div className="mind-card-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {tr('ESCALAS OPCIONALES', 'OPTIONAL SCALES')}</span></div>
+          <div className="mind-scales">
+            {SCALE_FIELDS.map((item) => <label className="mind-scale-input" key={item.key}>
+              <item.icon aria-hidden="true" className="mind-scale-icon" size={21} />
+              <span><strong>{language === 'en' ? ({ stress: 'Stress', isolation: 'Isolation', concentration: 'Concentration', energy: 'Energy', sleep_difficulty: 'Trouble sleeping' }[item.key]) : item.label}</strong><small>{language === 'en' ? ({ stress: '1 = none · 5 = very high', isolation: '1 = none · 5 = very high', concentration: '1 = very hard · 5 = very easy', energy: '1 = very low · 5 = very high', sleep_difficulty: '1 = none · 5 = a lot' }[item.key]) : `${item.low} · ${item.high}`}</small></span>
+              <select value={checkIn[item.key]} onChange={(event) => updateCheckIn(item.key, event.target.value)}><option value="">{tr('Sin responder', 'No answer')}</option>{[1, 2, 3, 4, 5].map((value) => <option value={value} key={value}>{value}</option>)}</select>
+            </label>)}
+          </div>
         </Panel>
 
         <Panel className="mind-journal-card">
-          <span className="mind-kicker">DIARIO EMOCIONAL</span>
-          <blockquote>«Hoy me sentí más cansado de lo habitual.<br />Extrañé a mi familia y me costó concentrarme.»</blockquote>
-          <small>AYER</small>
-          <p>«Buena sesión de ejercicio. Hablé con mi hermana por video y dormí mejor.»</p>
-          <div className="mind-journal-privacy">
-            <button onClick={() => onNotify('Tu diario permanece privado.')}><LockKeyhole size={11} /> Privada</button>
-            <span>Tú decides si la compartes con el equipo de apoyo.</span>
+          <div className="mind-card-heading"><span className="mind-kicker"><NotebookPen aria-hidden="true" /> {tr('DIARIO EMOCIONAL', 'EMOTIONAL JOURNAL')}</span><LockKeyhole aria-label={tr('Privado', 'Private')} size={17} /></div>
+          <div className="mind-journal-form">
+            <label className="sr-only" htmlFor="mind-journal-date">{tr('Fecha de la entrada', 'Entry date')}</label>
+            <input id="mind-journal-date" type="date" max={todayKey()} value={journalForm.entry_date} onChange={(event) => setJournalForm((form) => ({ ...form, entry_date: event.target.value }))} />
+            <label className="sr-only" htmlFor="mind-journal-text">{tr('Entrada privada', 'Private entry')}</label>
+            <textarea id="mind-journal-text" value={journalForm.text} onChange={(event) => setJournalForm((form) => ({ ...form, text: event.target.value }))} placeholder={tr('Escribe una entrada privada…', 'Write a private entry…')} readOnly={dictating} />
+            <div className="mind-dictation-row"><button className={dictating ? 'is-listening' : ''} type="button" onClick={toggleDictation} disabled={!speechSupported}>{dictating ? <MicOff size={15} /> : <Mic size={15} />}{dictating ? tr('Detener dictado', 'Stop dictation') : tr('Dictar en vivo', 'Dictate live')}</button><small>{dictationMessage || (speechSupported ? tr('El navegador puede procesar tu voz mediante un servicio externo. Revisa el texto antes de guardarlo.', 'Your browser may process speech through an external service. Review the text before saving.') : tr('El dictado en vivo no está disponible en este navegador.', 'Live dictation is unavailable in this browser.'))}</small></div>
+            <div className="mind-form-actions"><button type="button" onClick={() => { stopDictation(); setJournalForm((form) => ({ ...form, text: tr('Contenido ficticio para probar el diario en esta demo.', 'Fictional content to try the journal in this demo.') })) }}><Sparkles size={14} /> {tr('Usar ejemplo ficticio', 'Use fictional example')}</button>{journalForm.id && <button type="button" onClick={resetJournal}>{tr('Cancelar', 'Cancel')}</button>}<button className="primary-button" type="button" onClick={handleSaveJournal}>{journalForm.id ? tr('Actualizar', 'Update') : tr('Guardar', 'Save')}</button></div>
+          </div>
+          <div className="mind-journal-list">
+            {journalEntries.length ? journalEntries.map((entry) => <article key={entry.id}><time>{new Date(`${entry.date}T12:00:00`).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO')}</time><p>{entry.text}</p><div><button onClick={() => setJournalForm({ id: entry.id, entry_date: entry.date, text: entry.text })} type="button"><Edit3 size={12} /> {tr('Editar', 'Edit')}</button><button onClick={() => handleDeleteJournal(entry.id)} type="button"><Trash2 size={12} /> {tr('Borrar', 'Delete')}</button></div></article>) : <p className="mind-empty">{tr('Todavía no hay entradas. El diario no se usa para XP, diagnósticos ni informes.', 'No entries yet. Journal text is not used for XP, diagnoses or reports.')}</p>}
           </div>
         </Panel>
       </div>
 
       <div className="mind-bottom-grid">
         <Panel className="mind-weekly-card">
-          <span className="mind-kicker">CÓMO HAS CAMBIADO ESTA SEMANA</span>
-          <div className="mind-weekly-charts">{weeklyCharts.map((chart) => <WeeklyChart key={chart.title} chart={chart} />)}</div>
+          <div className="mind-card-heading mind-history-heading"><span className="mind-kicker"><BarChart3 aria-hidden="true" /> {tr('HISTORIAL · ÚLTIMOS', 'HISTORY · LAST')} {historyRange} {tr('DÍAS', 'DAYS')}</span><div className="mind-range-tabs" role="group" aria-label={tr('Período del historial', 'History period')}>{[7, 30, 90].map((range) => <button type="button" key={range} className={historyRange === range ? 'is-selected' : ''} onClick={() => setHistoryRange(range)} aria-pressed={historyRange === range}>{range} {tr('días', 'days')}</button>)}</div></div>
+          <p className="mind-history-note">{tr('Cada gráfica usa tus check-ins. Un día sin respuesta queda vacío, nunca se convierte en cero.', 'Charts use your check-ins. A day without an answer stays empty; it is never shown as zero.')}</p>
+          <HistoryChart checkIns={checkIns} range={historyRange} />
         </Panel>
 
         <Panel className="mind-wellness-card">
-          <span className="mind-kicker">BIENESTAR</span>
-          <button className={`mind-breath ${breathing ? 'is-active' : ''}`} onClick={() => setBreathing((active) => !active)}>
-            <span>{breathing ? 'Exhala' : 'Inhala'}<strong>4 s</strong></span>
-          </button>
-          <p>Respiración guiada · 5 min</p>
-          <div className="mind-wellness-task"><span>Pausa de relajación</span><small>10 min</small></div>
-          <div className="mind-wellness-task"><span>Llamada a familia</span><small>18:30</small></div>
-          <button className="primary-button mind-support-button" onClick={() => onNotify('Solicitud enviada al equipo de apoyo.')}>Hablar con el equipo de apoyo</button>
+          <div className="mind-card-heading"><span className="mind-kicker"><Sparkles aria-hidden="true" /> {tr('HERRAMIENTAS DE BIENESTAR', 'WELLBEING TOOLS')}</span></div>
+          <button className={`mind-breath is-${breathing}`} onClick={toggleBreathing} type="button" aria-label={breathing === 'idle' ? tr('Comenzar respiración', 'Start breathing') : breathing === 'running' ? tr('Pausar respiración', 'Pause breathing') : tr('Continuar respiración', 'Resume breathing')}><Sparkles aria-hidden="true" size={28} /><span>{breathing === 'running' ? tr('Respira suave', 'Breathe gently') : breathing === 'paused' ? tr('En pausa', 'Paused') : tr('Comenzar', 'Start')}<strong>{Math.floor(breathingSeconds / 60)}:{String(breathingSeconds % 60).padStart(2, '0')}</strong></span></button>
+          <div className="mind-breath-controls"><button onClick={toggleBreathing} disabled={breathing === 'idle'} type="button">{breathing === 'running' ? <Pause size={13} /> : <Play size={13} />} {breathing === 'running' ? tr('Pausar', 'Pause') : tr('Continuar', 'Resume')}</button><button onClick={finishBreathing} disabled={breathing === 'idle'} type="button"><Square size={12} /> {tr('Terminar', 'Finish')}</button></div>
+          <button className="mind-sound-toggle" onClick={toggleSound} type="button" aria-pressed={soundEnabled}>{soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}{soundEnabled ? tr('Sonido ambiental: activado', 'Ambient sound: on') : tr('Sonido ambiental: apagado', 'Ambient sound: off')}</button>
+          <p>{tr('Sin retenciones obligatorias. Sonido suave opcional; puedes parar cuando quieras.', 'No mandatory breath holds. Optional gentle sound; stop whenever you want.')}</p>
+          <button className={`mind-wellness-task ${pauseCompleted ? 'is-complete' : ''}`} onClick={completePause} type="button"><span><Heart aria-hidden="true" size={17} /> {tr('Pausa voluntaria', 'Optional break')}</span><small>{pauseCompleted ? tr('Realizada', 'Completed') : tr('Marcar como realizada', 'Mark as completed')}</small></button>
+          <button className="mind-reminder-toggle" type="button" onClick={() => setReminderOpen((open) => !open)} aria-expanded={reminderOpen}><span><Bell aria-hidden="true" size={17} /> {reminderForm.id ? tr('Editar recordatorio', 'Edit reminder') : tr('Nuevo recordatorio', 'New reminder')}</span><ChevronDown aria-hidden="true" size={17} /></button>
+          {reminderOpen && <div className="mind-reminder-form"><label className="sr-only" htmlFor="mind-reminder-kind">{tr('Tipo de recordatorio', 'Reminder type')}</label><select id="mind-reminder-kind" value={reminderForm.kind} onChange={(event) => setReminderForm((form) => ({ ...form, kind: event.target.value }))}><option value="pause">{tr('Pausa', 'Break')}</option><option value="contact">{tr('Contactar a alguien', 'Contact someone')}</option></select><label className="sr-only" htmlFor="mind-reminder-title">{tr('Nombre del aviso', 'Reminder name')}</label><input id="mind-reminder-title" value={reminderForm.title} onChange={(event) => setReminderForm((form) => ({ ...form, title: event.target.value }))} placeholder={tr('Ej. Escribir a casa', 'E.g. Write home')} /><label className="sr-only" htmlFor="mind-reminder-date">{tr('Fecha y hora del aviso', 'Reminder date and time')}</label><input id="mind-reminder-date" type="datetime-local" value={reminderForm.remind_at} onChange={(event) => setReminderForm((form) => ({ ...form, remind_at: event.target.value }))} /><div className="mind-form-actions"><button onClick={resetReminder} type="button">{tr('Cancelar', 'Cancel')}</button><button className="primary-button" onClick={handleSaveReminder} type="button">{tr('Guardar aviso', 'Save reminder')}</button></div></div>}
+          <div className="mind-reminder-list">{reminders.map((item) => <article key={item.id}><span><strong>{item.title}</strong><small>{new Date(item.remind_at).toLocaleString(language === 'en' ? 'en-US' : 'es-CO')}</small></span><button aria-label={tr(`Editar ${item.title}`, `Edit ${item.title}`)} onClick={() => { setReminderForm({ id: item.id, kind: item.kind, title: item.title, remind_at: localDateTimeValue(item.remind_at) }); setReminderOpen(true) }} type="button"><Edit3 size={13} /></button><button aria-label={tr(`Borrar ${item.title}`, `Delete ${item.title}`)} onClick={() => handleDeleteReminder(item.id)} type="button"><Trash2 size={13} /></button></article>)}</div>
+          <button className="mind-support-button" disabled type="button">{tr('Apoyo · No disponible en esta demo', 'Support · Unavailable in this demo')}</button>
         </Panel>
       </div>
     </section>

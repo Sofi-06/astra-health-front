@@ -26,7 +26,15 @@ async function request(path, { method = 'GET', body } = {}) {
     throw new ApiError('No hay conexión con el backend.', 0)
   }
   const data = response.status === 204 ? null : await response.json().catch(() => null)
-  if (!response.ok) throw new ApiError(data?.detail || 'No se pudo completar la solicitud.', response.status)
+  if (!response.ok) {
+    const missingMindRoute = response.status === 404
+      && (path.startsWith('mind/') || path === 'rewards')
+      && data?.detail === 'Ruta no encontrada.'
+    if (missingMindRoute) {
+      throw new ApiError('El backend en ejecución es una versión anterior y no puede guardar Mind Tracker. Reinicia el servidor de nasa-health y vuelve a intentarlo.', 404)
+    }
+    throw new ApiError(data?.detail || 'No se pudo completar la solicitud.', response.status)
+  }
   return data
 }
 
@@ -79,6 +87,20 @@ export const getGuidance = () => request('guidance')
 export const getSafety = () => request('safety')
 export const listResearchStudies = () => request('research/studies')
 export const exportData = () => request('export')
+export const getCheckIns = (days = 7) => request(`mind/check-ins?days=${days}`)
+export const saveCheckIn = (date, payload) =>
+  request(`mind/check-ins/${date}`, { method: 'PUT', body: payload })
+export const listJournalEntries = () => request('mind/journal')
+export const createJournalEntry = (payload) => request('mind/journal', { method: 'POST', body: payload })
+export const updateJournalEntry = (id, payload) => request(`mind/journal/${id}`, { method: 'PUT', body: payload })
+export const deleteJournalEntry = (id) => request(`mind/journal/${id}`, { method: 'DELETE' })
+export const listReminders = () => request('mind/reminders')
+export const createReminder = (payload) => request('mind/reminders', { method: 'POST', body: payload })
+export const updateReminder = (id, payload) => request(`mind/reminders/${id}`, { method: 'PUT', body: payload })
+export const deleteReminder = (id) => request(`mind/reminders/${id}`, { method: 'DELETE' })
+export const recordWellnessAction = (kind, actionDate) =>
+  request('mind/actions', { method: 'POST', body: { kind, action_date: actionDate } })
+export const getRewards = () => request('rewards')
 
 // Envía una nota de voz al backend, que la reenvía a un proveedor externo de
 // transcripción (OpenAI o Groq) SOLO si el servidor tiene clave configurada.

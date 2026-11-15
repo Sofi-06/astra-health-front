@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { closeSession, hasSession, openSession } from '../api/client'
 import DashboardPage from '../pages/DashboardPage'
 import LoginPage from '../pages/LoginPage'
+import { LanguageProvider } from './LanguageContext'
 
 export default function App() {
   const [notice, setNotice] = useState('')
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [session, setSession] = useState(null)
   const [checkingSession, setCheckingSession] = useState(true)
+  const [entryGreeting, setEntryGreeting] = useState(null)
 
   // Si la pestaña ya tenía sesión, se reanuda sin pasar por el login.
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function App() {
     try { await closeSession() } catch { /* el token local se elimina de todos modos */ }
     setSession(null)
     setIsAuthenticated(false)
+    setEntryGreeting(null)
   }
 
   const notify = (message) => {
@@ -36,19 +39,24 @@ export default function App() {
   }
 
   return (
-    <>
+    <LanguageProvider>
       {!checkingSession && (isAuthenticated
         ? <DashboardPage
             onNotify={notify}
             session={session}
+            entryGreeting={entryGreeting}
             onLogout={logout}
             onUserUpdated={(user) => setSession((current) => ({ ...current, user }))}
           />
-        : <LoginPage onLogin={(data) => { setSession(data); setIsAuthenticated(true) }} />)}
+        : <LoginPage onLogin={(data, mode) => {
+            setSession(data)
+            setEntryGreeting({ id: Date.now(), mode })
+            setIsAuthenticated(true)
+          }} />)}
       <div className={`toast ${notice ? 'toast--visible' : ''}`} role="status" aria-live="polite">
         <span className="toast__pulse" />
         {notice}
       </div>
-    </>
+    </LanguageProvider>
   )
 }

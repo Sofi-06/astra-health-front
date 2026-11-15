@@ -3,8 +3,10 @@ import { BedDouble } from 'lucide-react'
 import Panel from '../ui/Panel'
 import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { loadSyntheticSleep } from '../../api/client'
+import { useLanguage } from '../../app/LanguageContext'
 
-export default function SleepAnalysisPanel({ analysis, loading = false, onReload, onNotify, onOpenVitals }) {
+export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpenVitals }) {
+  const { tr } = useLanguage()
   const [busy, setBusy] = useState(false)
 
   const loadExample = async () => {
@@ -12,7 +14,7 @@ export default function SleepAnalysisPanel({ analysis, loading = false, onReload
     try {
       await loadSyntheticSleep()
       await onReload?.()
-      onNotify?.('Datos sintéticos de sueño cargados en SQLite.')
+      onNotify?.(tr('Datos sintéticos de sueño cargados.', 'Sample sleep data loaded.'))
     } catch (e) {
       onNotify?.(e.message)
     } finally {
@@ -36,7 +38,7 @@ export default function SleepAnalysisPanel({ analysis, loading = false, onReload
       <div className="sleep-panel-pro__header">
         <BedDouble size={16} className="sleep-icon" />
         <span className="section-title">
-          ANÁLISIS DE SUEÑO · {analysis?.window?.days || 7} DÍAS
+          {tr('ANÁLISIS DE SUEÑO', 'SLEEP ANALYSIS')} · {analysis?.window?.days || 7} {tr('DÍAS', 'DAYS')}
         </span>
       </div>
 
@@ -82,12 +84,12 @@ export default function SleepAnalysisPanel({ analysis, loading = false, onReload
 
             {/* Información textual real */}
             <div className="sleep-panel-pro__info">
-              <h3>Media del periodo</h3>
-              <p>Promedio: {stats.mean_hours} h · ({stats.min.hours}h - {stats.max.hours}h)</p>
-              <p className="sleep-note">Horas declaradas; el arco compara la media con una referencia de 8 h. No es una evaluación de calidad.</p>
+              <h3>{tr('Media del periodo', 'Period average')}</h3>
+              <p>{tr('Promedio', 'Average')}: {stats.mean_hours} h · ({stats.min.hours}h - {stats.max.hours}h)</p>
+              <p className="sleep-note">{tr('Horas declaradas; el arco compara la media con una referencia de 8 h. No es una evaluación de calidad.', 'Self-reported hours; the arc compares the average with an 8-hour reference. It does not assess sleep quality.')}</p>
 
               {/* Segmentos de días registrados */}
-              <div className="sleep-segments-bar" title={`${daysRecorded} de ${daysTotal} noches registradas`}>
+              <div className="sleep-segments-bar" title={tr(`${daysRecorded} de ${daysTotal} noches registradas`, `${daysRecorded} of ${daysTotal} nights recorded`)}>
                 {[...Array(Math.min(10, daysTotal))].map((_, i) => (
                   <span
                     key={i}
@@ -99,14 +101,14 @@ export default function SleepAnalysisPanel({ analysis, loading = false, onReload
           </>
         ) : (
           <div className="sleep-empty-state">
-            <p className="sleep-empty-text">Sin datos de sueño registrados en el periodo.</p>
+            <p className="sleep-empty-text">{tr('Sin datos de sueño registrados en el periodo.', 'No sleep data recorded in this period.')}</p>
             <div className="sleep-empty-actions">
               <button
                 className="primary-pill-btn btn--compact"
                 onClick={onOpenVitals}
                 type="button"
               >
-                + Registrar sueño
+                {tr('+ Registrar sueño', '+ Record sleep')}
               </button>
               <button
                 className="secondary-pill-btn btn--compact"
@@ -114,7 +116,7 @@ export default function SleepAnalysisPanel({ analysis, loading = false, onReload
                 disabled={busy}
                 type="button"
               >
-                {busy ? 'Cargando…' : 'Cargar datos de ejemplo'}
+                {busy ? tr('Cargando…', 'Loading…') : tr('Cargar datos de ejemplo', 'Load sample data')}
               </button>
             </div>
           </div>

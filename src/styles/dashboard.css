@@ -1279,6 +1279,162 @@
   cursor: grabbing;
 }
 
+/* ─── Hologram Equalizer Light Pillars (SOLO activo cuando habla el audio) ─── */
+.hologram-equalizer-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  padding: 0 4% 12%;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 400ms ease, visibility 400ms ease;
+}
+
+.hologram-equalizer-stage.is-active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.equalizer-beam {
+  width: 9px;
+  height: calc(90px + (var(--beam-idx) % 7) * 38px);
+  max-height: 420px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to top, rgba(49, 220, 255, 0.45) 0%, rgba(20, 140, 255, 0.22) 65%, transparent 100%);
+  box-shadow: 0 0 10px rgba(49, 220, 255, 0.25);
+  transform-origin: bottom center;
+}
+
+.hologram-equalizer-stage.is-active .equalizer-beam {
+  animation: equalizerVoiceWave 0.7s ease-in-out infinite alternate;
+  animation-delay: calc((var(--beam-idx) * 65ms));
+  background: linear-gradient(to top, rgba(49, 220, 255, 0.68) 0%, rgba(0, 180, 255, 0.35) 70%, transparent 100%);
+  box-shadow: 0 0 15px rgba(49, 220, 255, 0.5);
+}
+
+@keyframes equalizerVoiceWave {
+  0% {
+    transform: scaleY(0.45);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scaleY(1.35);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scaleY(0.75);
+    opacity: 0.65;
+  }
+}
+
+/* ─── Hologram Rising Scan Rings (Exactamente 7 ondas desde el inicio al final) ─── */
+.hologram-rising-rings {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.hologram-scan-ring {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 290px;
+  height: 90px;
+  margin-left: -145px;
+  border-radius: 50%;
+  border: 1.8px solid #00d2ff;
+  box-shadow: 0 0 16px #00d2ff, inset 0 0 12px rgba(0, 210, 255, 0.45);
+  filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.75));
+  opacity: 0;
+  pointer-events: none;
+  animation: scanRingAscendOnce 1.75s cubic-bezier(0.2, 0.6, 0.35, 1) forwards;
+  animation-delay: calc(var(--ring-idx, 0) * 0.48s);
+}
+
+@keyframes scanRingAscendOnce {
+  0% {
+    bottom: 8%;
+    transform: scale(0.8);
+    opacity: 0.95;
+  }
+  20% {
+    opacity: 0.95;
+  }
+  65% {
+    opacity: 0.6;
+  }
+  100% {
+    bottom: 74%;
+    transform: scale(1.24);
+    opacity: 0;
+  }
+}
+
+/* ─── Greeting Play Button (Matching Video Bottom Right) ─── */
+.greeting-play-btn {
+  position: absolute;
+  right: 20px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border: 1px solid rgba(49, 195, 255, 0.45);
+  border-radius: 22px;
+  background: rgba(4, 20, 48, 0.88);
+  backdrop-filter: blur(12px);
+  color: #c4ecff;
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 180ms ease;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 0 10px rgba(49, 220, 255, 0.2);
+}
+
+.greeting-play-btn:hover {
+  background: rgba(8, 35, 78, 0.95);
+  border-color: #31dcff;
+  color: #ffffff;
+  box-shadow: 0 0 18px rgba(49, 220, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.greeting-play-btn.is-active {
+  border-color: #39e58c;
+  color: #39e58c;
+  box-shadow: 0 0 15px rgba(57, 229, 140, 0.4);
+}
+
+.dashboard-greeting { position: absolute; inset: 0; z-index: 8; pointer-events: none; }
+.dashboard-greeting__halo { position: absolute; top: 12%; left: 50%; width: 140px; height: 140px; transform: translateX(-50%); pointer-events: none; }
+.dashboard-greeting__halo i { position: absolute; inset: 0; border: 1px solid rgba(60, 222, 255, .48); border-radius: 50%; opacity: .35; }
+.dashboard-greeting.is-speaking .dashboard-greeting__halo i { animation: greetingRipple 2.4s ease-out infinite; }
+.dashboard-greeting.is-speaking .dashboard-greeting__halo i:nth-child(2) { animation-delay: .8s; }
+.dashboard-greeting.is-speaking .dashboard-greeting__halo i:nth-child(3) { animation-delay: 1.6s; }
+@keyframes greetingRipple { from { transform: scale(.45); opacity: .65; } to { transform: scale(1.65); opacity: 0; } }
+.dashboard-greeting p { position: absolute; right: 6%; bottom: 17%; left: 6%; min-height: 2.8em; margin: 0; color: #43ddff; font-size: clamp(1rem, 1.55vw, 1.45rem); font-weight: 700; line-height: 1.4; letter-spacing: .045em; text-align: center; text-shadow: 0 0 8px rgba(16, 201, 255, .9), 0 0 24px rgba(16, 201, 255, .5), 0 2px 6px #001228; }
+.dashboard-greeting.is-typing p span::after { content: ''; display: inline-block; width: 2px; height: .95em; margin-left: 3px; background: currentColor; vertical-align: -.12em; box-shadow: 0 0 9px currentColor; animation: greetingCaret .7s steps(1) infinite; }
+@keyframes greetingCaret { 50% { opacity: 0; } }
+.dashboard-greeting__wave { position: absolute; right: 20%; bottom: 10%; left: 20%; display: flex; align-items: center; justify-content: center; gap: 4px; height: 30px; }
+.dashboard-greeting__wave i { width: 3px; height: 5px; border-radius: 4px; background: #36dafa; box-shadow: 0 0 8px #36dafa; }
+.dashboard-greeting.is-speaking .dashboard-greeting__wave i { animation: greetingBar .8s ease-in-out infinite alternate; animation-delay: calc(var(--bar-index, 0) * 70ms); }
+.dashboard-greeting.is-speaking .dashboard-greeting__wave i:nth-child(3n) { animation-delay: .18s; }
+.dashboard-greeting.is-speaking .dashboard-greeting__wave i:nth-child(4n) { animation-delay: .36s; }
+@keyframes greetingBar { to { height: 25px; opacity: .75; } }
+.dashboard-greeting button { position: absolute; right: 8%; bottom: 3%; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid rgba(63, 195, 236, .48); border-radius: 20px; background: rgba(3, 28, 62, .86); color: #a9e6fa; cursor: pointer; font-size: .65rem; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-greeting.is-speaking .dashboard-greeting__halo i,
+  .dashboard-greeting.is-speaking .dashboard-greeting__wave i,
+  .dashboard-greeting.is-typing p span::after { animation: none; }
+}
+
 /* ─── Pedestal Platform (Feet Holographic Rings) ─── */
 .feet-pedestal-platform {
   position: absolute;

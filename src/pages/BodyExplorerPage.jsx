@@ -8,6 +8,18 @@ import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { listEntries, getHistory } from '../api/client'
 import { formatDay, formatValue, formatWhen } from '../data/format'
+import { useLanguage } from '../app/LanguageContext'
+
+const SYSTEM_EN = {
+  Cerebro: { name: 'Brain', description: 'Sleep and isolation may affect concentration.', action: 'Scheduled cognitive routine' },
+  Corazón: { name: 'Heart', description: 'Microgravity changes how the heart pumps and adapts.', action: 'Scheduled cardiovascular exercise' },
+  Pulmones: { name: 'Lungs', description: 'Breathing capacity is monitored throughout the mission.', action: 'Daily guided breathing' },
+  Huesos: { name: 'Bones', description: 'Microgravity accelerates the loss of bone mineral density.', action: 'Resistance exercise and supplementation' },
+  Músculos: { name: 'Muscles', description: 'Muscle mass needs regular stimulation in microgravity.', action: 'Resistance exercise' },
+  Digestivo: { name: 'Digestive', description: 'Nutrition and digestion are monitored during the mission.', action: 'Mission nutrition plan' },
+  Inmunológico: { name: 'Immune', description: 'Space-related stress may change the immune response.', action: 'Regular medical monitoring' },
+}
+const BODY_METRIC_EN = { sleep: 'Reported sleep', heart_rate: 'Heart rate', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', glucose: 'Glucose', temperature: 'Temperature' }
 
 // Cada sistema muestra solo los indicadores que el backend registra de verdad.
 // Sin datos reales se dice "Sin registros"; no se simulan estados clínicos.
@@ -21,19 +33,19 @@ const SYSTEM_DEFS = [
   { name: 'Inmunológico', icon: Plus, description: 'El estrés espacial puede modificar la respuesta inmunológica.', metrics: [{ code: 'temperature', label: 'Temperatura' }], action: 'Control médico periódico' },
 ]
 
-function buildSystems(latest) {
+function buildSystems(latest, language) {
   return SYSTEM_DEFS.map((def) => {
     const records = def.metrics.map(({ code, label }) => {
       const entry = latest?.[code]
       return entry
-        ? `${label}: ${formatValue(entry.candidate)} ${entry.candidate.unit} · ${formatWhen(entry.measured_at)}`
-        : `${label}: sin registros`
+        ? `${language === 'en' ? BODY_METRIC_EN[code] : label}: ${formatValue(entry.candidate)} ${entry.candidate.unit} · ${formatWhen(entry.measured_at, language)}`
+        : `${language === 'en' ? BODY_METRIC_EN[code] : label}: ${language === 'en' ? 'no records' : 'sin registros'}`
     })
     const hasData = def.metrics.some(({ code }) => latest?.[code])
     return {
       ...def,
-      status: def.metrics.length === 0 ? 'Sin indicador conectado' : hasData ? 'Con registros' : 'Sin registros',
-      records: records.length ? records : ['Este prototipo no registra un indicador de este sistema'],
+      status: def.metrics.length === 0 ? (language === 'en' ? 'No connected metric' : 'Sin indicador conectado') : hasData ? (language === 'en' ? 'Records available' : 'Con registros') : (language === 'en' ? 'No records' : 'Sin registros'),
+      records: records.length ? records : [language === 'en' ? 'This prototype does not record a metric for this system' : 'Este prototipo no registra un indicador de este sistema'],
     }
   })
 }
@@ -220,15 +232,16 @@ function ExplorerModel({ selected, onSelect }) {
 }
 
 function BodyModel({ selected, onSelect, latest }) {
+  const { tr } = useLanguage()
   const hr = latest?.heart_rate
   const o2 = latest?.oxygen_saturation
   const temp = latest?.temperature
   const gluc = latest?.glucose
   return (
-    <div className="body-model-stage" aria-label={`Modelo corporal interactivo. Zona seleccionada: ${selected}`}>
+    <div className="body-model-stage" aria-label={tr(`Modelo corporal interactivo. Zona seleccionada: ${selected}`, `Interactive body model. Selected area: ${SYSTEM_EN[selected]?.name || selected}`)}>
       <div className="body-orbit body-orbit--one" /><div className="body-orbit body-orbit--two" />
       <div className="body-platform"><i /><i /><i /></div>
-      <Suspense fallback={<div className="body-model-loading">Sincronizando modelo…</div>}>
+      <Suspense fallback={<div className="body-model-loading">{tr('Sincronizando modelo…', 'Syncing model…')}</div>}>
         <Canvas key="body-explorer-fixed-camera" camera={{ position: [0, 2.35, 14.2], fov: 32 }} dpr={[1, 1.7]} gl={{ alpha: true, antialias: true }}>
           <ambientLight intensity={0.5} color="#43dcff" />
           <pointLight position={[2, 3, 4]} intensity={8} color="#00bfff" distance={10} />
@@ -237,17 +250,18 @@ function BodyModel({ selected, onSelect, latest }) {
           <OrbitControls target={[0, 2.35, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
-      <div className="body-callout body-callout--mood"><small>TEMPERATURA</small><strong>{temp ? <>{formatValue(temp.candidate)} <em>{temp.candidate.unit}</em></> : '—'}</strong></div>
-      <div className="body-callout body-callout--heart"><small>FREC. CARDÍACA</small><strong>{hr ? <>{formatValue(hr.candidate)} <em>{hr.candidate.unit}</em></> : '—'}</strong></div>
-      <div className="body-callout body-callout--oxygen"><small>SATURACIÓN O₂</small><strong>{o2 ? <>{formatValue(o2.candidate)}<em>{o2.candidate.unit}</em></> : '—'}</strong></div>
-      <div className="body-callout body-callout--activity"><small>GLUCOSA</small><strong>{gluc ? <>{formatValue(gluc.candidate)} <em>{gluc.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--mood"><small>{tr('TEMPERATURA', 'TEMPERATURE')}</small><strong>{temp ? <>{formatValue(temp.candidate)} <em>{temp.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--heart"><small>{tr('FREC. CARDÍACA', 'HEART RATE')}</small><strong>{hr ? <>{formatValue(hr.candidate)} <em>{hr.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--oxygen"><small>{tr('SATURACIÓN O₂', 'OXYGEN SAT. O₂')}</small><strong>{o2 ? <>{formatValue(o2.candidate)}<em>{o2.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--activity"><small>{tr('GLUCOSA', 'GLUCOSE')}</small><strong>{gluc ? <>{formatValue(gluc.candidate)} <em>{gluc.candidate.unit}</em></> : '—'}</strong></div>
     </div>
   )
 }
 
 function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
+  const { language, tr } = useLanguage()
   if (points.length < 2) {
-    return <p className="chart-empty">Sin registros suficientes del indicador principal de este sistema para dibujar su evolución.</p>
+    return <p className="chart-empty">{tr('Sin registros suficientes del indicador principal de este sistema para dibujar su evolución.', 'Not enough records for this system’s main metric to draw a trend.')}</p>
   }
   const values = points.map((p) => p.values[0])
   let min = Math.min(...values)
@@ -267,7 +281,7 @@ function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
   const yLabels = [max, (max + min) / 2, min]
   const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
   return (
-    <svg className="body-detail-chart" viewBox="0 0 270 125" role="img" aria-label={`Evolución real del sistema (${unit})`}>
+    <svg className="body-detail-chart" viewBox="0 0 270 125" role="img" aria-label={tr(`Evolución real del sistema (${unit})`, `Real system trend (${unit})`)}>
       <defs><linearGradient id="bodyDetailFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".38" /><stop offset="1" stopColor={color} stopOpacity=".02" /></linearGradient></defs>
       {yLabels.map((tick, index) => {
         const y = top + index * ((bottom - top) / 2)
@@ -276,18 +290,19 @@ function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
       <path d={area} fill="url(#bodyDetailFill)" />
       <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx={last[0]} cy={last[1]} r="8" fill={color} opacity=".25" /><circle cx={last[0]} cy={last[1]} r="4" fill="#fff" stroke={color} strokeWidth="2" />
-      {xLabels.map((i) => <text key={i} x={left + (i / Math.max(1, points.length - 1)) * (right - left)} y="120" textAnchor="middle" className="body-detail-label">{formatDay(points[i].t)}</text>)}
+      {xLabels.map((i) => <text key={i} x={left + (i / Math.max(1, points.length - 1)) * (right - left)} y="120" textAnchor="middle" className="body-detail-label">{formatDay(points[i].t, language)}</text>)}
     </svg>
   )
 }
 
 export default function BodyExplorerPage({ onNotify }) {
+  const { language, tr } = useLanguage()
   const [selected, setSelected] = useState('Corazón')
   const [latest, setLatest] = useState({})
   const [entriesLoaded, setEntriesLoaded] = useState(false)
   const [loadedMetric, setLoadedMetric] = useState(null) // indicador cuyo historial ya se cargó
   const [detailPoints, setDetailPoints] = useState({ points: [], unit: '' })
-  const systems = useMemo(() => buildSystems(latest), [latest])
+  const systems = useMemo(() => buildSystems(latest, language), [latest, language])
   const detail = systems.find((system) => system.name === selected)
   const primaryMetric = detail?.metrics?.[0]?.code
   const detailLoading = !entriesLoaded || (primaryMetric && loadedMetric !== primaryMetric)
@@ -325,15 +340,15 @@ export default function BodyExplorerPage({ onNotify }) {
 
   const chooseSystem = (name) => {
     setSelected(name)
-    onNotify(`Explorando sistema: ${name}.`)
+    onNotify(tr(`Explorando sistema: ${name}.`, `Exploring system: ${SYSTEM_EN[name]?.name || name}.`))
   }
 
   return (
-    <section className="body-explorer" aria-label="Explorador del cuerpo humano">
+    <section className="body-explorer" aria-label={tr('Explorador del cuerpo humano', 'Human body explorer')}>
       <div className="body-main-grid">
         <Panel className="body-systems-card">
-          <span className="body-kicker">SISTEMAS</span>
-          <nav>{systems.map(({ name, icon: Icon }) => <button key={name} className={selected === name ? 'is-active' : ''} onClick={() => chooseSystem(name)}><Icon size={20} strokeWidth={1.45} /><span>{name}</span></button>)}</nav>
+          <span className="body-kicker">{tr('SISTEMAS', 'SYSTEMS')}</span>
+          <nav>{systems.map(({ name, icon: Icon }) => <button key={name} className={selected === name ? 'is-active' : ''} onClick={() => chooseSystem(name)}><Icon size={20} strokeWidth={1.45} /><span>{language === 'en' ? SYSTEM_EN[name]?.name : name}</span></button>)}</nav>
         </Panel>
 
         <BodyModel selected={selected} onSelect={chooseSystem} latest={latest} />
@@ -351,17 +366,23 @@ export default function BodyExplorerPage({ onNotify }) {
           )}
           <h3>EN EL ESPACIO</h3><p>{detail.description}</p>
           <h3>QUÉ SE REGISTRA</h3>
+          <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
+          <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
+          <span className="body-status-chip">{detail.status}</span>
+          <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
+          <h3>{tr('EN EL ESPACIO', 'IN SPACE')}</h3><p>{language === 'en' ? SYSTEM_EN[detail.name]?.description : detail.description}</p>
+          <h3>{tr('QUÉ SE REGISTRA', 'WHAT IS RECORDED')}</h3>
           <ul>{detail.records.map((record) => <li key={record}>{record}</li>)}</ul>
-          <h3>ACCIONES PREVENTIVAS</h3>
-          <ul><li>{detail.action}</li></ul>
+          <h3>{tr('ACCIONES PREVENTIVAS', 'PREVENTIVE ACTIONS')}</h3>
+          <ul><li>{language === 'en' ? SYSTEM_EN[detail.name]?.action : detail.action}</li></ul>
         </Panel>
       </div>
 
       <Panel className="body-knowledge-card">
-        <div className="body-knowledge-intro"><h2>Conoce tu cuerpo</h2><p>Cómo la microgravedad, la radiación y el aislamiento afectan cada sistema.</p></div>
-        <button onClick={() => onNotify('Abriendo efectos de la radiación.')}><Radiation size={19} /><strong>Radiación</strong><small>Efectos y seguimiento</small></button>
-        <button onClick={() => onNotify('Abriendo efectos de la microgravedad.')}><span className="body-down-arrow">⬇</span><strong>Microgravedad</strong><small>Hueso, músculo, corazón</small></button>
-        <button onClick={() => onNotify('Abriendo efectos del aislamiento.')}><CircleDot size={18} /><strong>Aislamiento</strong><small>Sueño y ánimo</small></button>
+        <div className="body-knowledge-intro"><h2>{tr('Conoce tu cuerpo', 'Know your body')}</h2><p>{tr('Cómo la microgravedad, la radiación y el aislamiento afectan cada sistema.', 'How microgravity, radiation and isolation affect each system.')}</p></div>
+        <button onClick={() => onNotify(tr('Abriendo efectos de la radiación.', 'Opening radiation effects.'))}><Radiation size={19} /><strong>{tr('Radiación', 'Radiation')}</strong><small>{tr('Efectos y seguimiento', 'Effects and monitoring')}</small></button>
+        <button onClick={() => onNotify(tr('Abriendo efectos de la microgravedad.', 'Opening microgravity effects.'))}><span className="body-down-arrow">⬇</span><strong>{tr('Microgravedad', 'Microgravity')}</strong><small>{tr('Hueso, músculo, corazón', 'Bone, muscle, heart')}</small></button>
+        <button onClick={() => onNotify(tr('Abriendo efectos del aislamiento.', 'Opening isolation effects.'))}><CircleDot size={18} /><strong>{tr('Aislamiento', 'Isolation')}</strong><small>{tr('Sueño y ánimo', 'Sleep and mood')}</small></button>
       </Panel>
     </section>
   )

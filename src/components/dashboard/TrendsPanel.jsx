@@ -2,6 +2,7 @@ import { useId, useMemo, useState } from 'react'
 import { BarChart3, ChevronDown } from 'lucide-react'
 import Panel from '../ui/Panel'
 import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
+import { useLanguage } from '../../app/LanguageContext'
 
 function seriesOf(historyItem) {
   const series = [...(historyItem?.series ?? [])].sort(
@@ -10,7 +11,8 @@ function seriesOf(historyItem) {
   return series ? { unit: series.unit, points: series.points } : { unit: '', points: [] }
 }
 
-export default function TrendsPanel({ history, loading = false, onOpenVitals }) {
+export default function TrendsPanel({ history, onOpenVitals }) {
+  const { tr } = useLanguage()
   const [range, setRange] = useState('Últimos 7 días')
   const gradientId = useId().replace(/:/g, '')
 
@@ -44,21 +46,21 @@ export default function TrendsPanel({ history, loading = false, onOpenVitals }) 
       <div className="trends-panel-pro__header">
         <div className="trends-title-wrap">
           <BarChart3 size={16} className="trends-icon" />
-          <span className="section-title">TENDENCIAS</span>
+          <span className="section-title">{tr('TENDENCIAS', 'TRENDS')}</span>
         </div>
 
-        <button className="range-dropdown-btn" type="button" title="Periodo de tiempo">
-          <span>{range}</span>
+        <button className="range-dropdown-btn" type="button" title={tr('Periodo de tiempo', 'Time range')}>
+          <span>{tr(range, 'Last 7 days')}</span>
           <ChevronDown size={13} />
         </button>
       </div>
 
       <div className="trends-legend">
         <span className="legend-item legend--pulse">
-          <span className="legend-dot" /> Pulso {heart.unit && `(${heart.unit})`}
+          <span className="legend-dot" /> {tr('Pulso', 'Heart rate')} {heart.unit && `(${heart.unit})`}
         </span>
         <span className="legend-item legend--sleep">
-          <span className="legend-dot" /> Sueño {sleep.unit && `(${sleep.unit})`}
+          <span className="legend-dot" /> {tr('Sueño', 'Sleep')} {sleep.unit && `(${sleep.unit})`}
         </span>
       </div>
 
@@ -71,9 +73,9 @@ export default function TrendsPanel({ history, loading = false, onOpenVitals }) 
         ) : hasData ? (
           <>
             <div className="trends-axis-y">
-              <span>Máx</span>
-              <span>Med</span>
-              <span>Mín</span>
+              <span>{tr('Máx', 'Max')}</span>
+              <span>{tr('Med', 'Avg')}</span>
+              <span>{tr('Mín', 'Min')}</span>
             </div>
 
             <div className="trends-svg-wrap">
@@ -105,17 +107,17 @@ export default function TrendsPanel({ history, loading = false, onOpenVitals }) 
               </svg>
 
               <div className="trends-axis-x">
-                <span>Inicio</span>
-                <span>Intermedio</span>
-                <span>Reciente</span>
+                <span>{tr('Inicio', 'Start')}</span>
+                <span>{tr('Intermedio', 'Middle')}</span>
+                <span>{tr('Reciente', 'Recent')}</span>
               </div>
             </div>
           </>
         ) : (
           <div className="trends-empty-state">
-            <p>Se requieren al menos 2 registros reales para dibujar la tendencia.</p>
+            <p>{tr('Se requieren al menos 2 registros reales para dibujar la tendencia.', 'At least 2 real records are needed to draw a trend.')}</p>
             <button className="primary-pill-btn btn--compact" onClick={onOpenVitals} type="button">
-              + Registrar signos
+              {tr('+ Registrar signos', '+ Record vitals')}
             </button>
           </div>
         )}

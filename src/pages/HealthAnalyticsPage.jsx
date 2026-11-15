@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Download, FileText } from 'lucide-react'
 import Panel from '../components/ui/Panel'
-import { getAnalysis, getHistory, listEntries } from '../api/client'
+import { getAnalysis, getCheckIns, getHistory, listEntries } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey, METRIC_LABELS } from '../data/format'
+import { useLanguage } from '../app/LanguageContext'
+
+const ANALYTICS_METRIC_EN = { heart_rate: 'HEART RATE', sleep: 'SLEEP', blood_pressure: 'BLOOD PRESSURE (SYSTOLIC)', glucose: 'GLUCOSE', temperature: 'Temperature', oxygen_saturation: 'Oxygen saturation' }
+const RANGE_EN = { '24 h': '24 h', '7 días': '7 days', '30 días': '30 days', '3 meses': '3 months', 'Toda la misión': 'Entire mission' }
 
 const TIME_FILTERS = [
   { label: '24 h', days: 1 },
@@ -42,7 +46,8 @@ function last7Days() {
   return days
 }
 
-function MetricChartCard({ meta, historyData, analysis, loading = false }) {
+function MetricChartCard({ meta, historyData, analysis }) {
+  const { language, tr } = useLanguage()
   const series = [...(historyData?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
   const points = series?.points ?? []
   const values = points.map((p) => p.values[0])
@@ -92,7 +97,7 @@ function MetricChartCard({ meta, historyData, analysis, loading = false }) {
     <Panel className="analytics-metric-chart-card">
       <div className="metric-chart-top">
         <div>
-          <span className="card-kicker">{meta.kicker}</span>
+          <span className="card-kicker">{language === 'en' ? ANALYTICS_METRIC_EN[meta.code] : meta.kicker}</span>
           <div className="card-val-row">
             {loading ? <Skeleton w={110} h={26} /> : (
               <>
@@ -124,65 +129,71 @@ function MetricChartCard({ meta, historyData, analysis, loading = false }) {
                 {lastPoint && <circle cx={lastPoint[0]} cy={lastPoint[1]} r="4" fill="#ffffff" stroke={meta.color} strokeWidth="2" />}
               </svg>
               <div className="axis-x-labels">
-                <span>{formatDay(points[0].t)}</span>
-                <span>{formatDay(points[Math.floor((points.length - 1) / 2)].t)}</span>
-                <span>{formatDay(points.at(-1).t)}</span>
+                <span>{formatDay(points[0].t, language)}</span>
+                <span>{formatDay(points[Math.floor((points.length - 1) / 2)].t, language)}</span>
+                <span>{formatDay(points.at(-1).t, language)}</span>
               </div>
             </div>
           </>
         ) : (
-          <p className="chart-empty">Sin registros suficientes en este periodo. Registra datos reales para ver la evolución.</p>
+          <p className="chart-empty">{tr('Sin registros suficientes en este periodo. Registra datos reales para ver la evolución.', 'Not enough records in this period. Record real data to see a trend.')}</p>
         )}
       </div>
-      <span className="axis-vertical-hint">Eje vertical: {series?.unit || meta.unitHint}</span>
+      <span className="axis-vertical-hint">{tr('Eje vertical', 'Vertical axis')}: {series?.unit || meta.unitHint}</span>
     </Panel>
   )
 }
 
-function HealthReportView({ activeRange, days, entries, onChangeRange, onBack }) {
+function HealthReportView({ activeRange, days, entries, checkIns, onChangeRange, onBack }) {
+  const { language, tr } = useLanguage()
   const report = useMemo(() => {
     const now = Date.now()
     const cutoff = days >= 3650 ? Number.NEGATIVE_INFINITY : now - days * 86400000
-    const included = entries
+    const physical = entries
       .filter((entry) => new Date(entry.measured_at).getTime() >= cutoff)
-      .filter((entry) => ['measurement', 'symptom'].includes(entry.candidate?.kind))
+      .filter((entry) => entry.candidate?.kind === 'measurement')
       .sort((a, b) => new Date(b.measured_at) - new Date(a.measured_at))
-    const physical = included.filter((entry) => entry.candidate.kind === 'measurement')
-    const wellbeing = included.filter((entry) => entry.candidate.kind === 'symptom')
-    const recordedDays = new Set(included.map((entry) => localDateKey(entry.measured_at)))
+    const wellbeing = checkIns
+      .filter((entry) => new Date(`${entry.date}T12:00:00`).getTime() >= cutoff)
+      .sort((a, b) => b.date.localeCompare(a.date))
+    const recordedDays = new Set([
+      ...physical.map((entry) => localDateKey(entry.measured_at)),
+      ...wellbeing.map((entry) => entry.date),
+    ])
     let totalDays = days
     if (days >= 3650) {
-      const oldest = included.at(-1)?.measured_at
+      const dates = [...physical.map((entry) => entry.measured_at), ...wellbeing.map((entry) => `${entry.date}T12:00:00`)]
+      const oldest = dates.sort((a, b) => new Date(a) - new Date(b))[0]
       totalDays = oldest
         ? Math.max(1, Math.floor((now - new Date(oldest).getTime()) / 86400000) + 1)
         : 0
     }
-    return { physical, wellbeing, recordedDays: recordedDays.size, totalDays, total: included.length }
-  }, [days, entries])
+    return { physical, wellbeing, recordedDays: recordedDays.size, totalDays, total: physical.length + wellbeing.length }
+  }, [checkIns, days, entries])
 
   return (
-    <div className="health-report-screen" aria-label="Resumen de registros de salud">
+    <div className="health-report-screen" aria-label={tr('Resumen de registros de salud', 'Health records summary')}>
       <header className="report-screen-header">
         <button className="report-back-button" onClick={onBack} type="button">
           <ArrowLeft size={17} />
-          <span>Volver al historial</span>
+          <span>{tr('Volver al historial', 'Back to history')}</span>
         </button>
         <button className="secondary-pill-btn report-download-button" onClick={() => window.print()} type="button">
           <Download size={16} />
-          <span>Guardar como PDF</span>
+          <span>{tr('Guardar como PDF', 'Save as PDF')}</span>
         </button>
       </header>
 
       <div className="report-title-block">
         <div className="report-title-icon"><FileText size={23} /></div>
         <div>
-          <span className="section-title">INFORME PERSONAL</span>
-          <h1>Resumen de registros</h1>
-          <p>Información confirmada por la persona. Generado el {formatWhen(new Date().toISOString())}.</p>
+          <span className="section-title">{tr('INFORME PERSONAL', 'PERSONAL REPORT')}</span>
+          <h1>{tr('Resumen de registros', 'Records summary')}</h1>
+          <p>{tr('Información confirmada por la persona. Generado el', 'Information confirmed by the user. Generated on')} {formatWhen(new Date().toISOString(), language)}.</p>
         </div>
       </div>
 
-      <div className="time-filters-row report-period-filters" aria-label="Periodo del informe">
+      <div className="time-filters-row report-period-filters" aria-label={tr('Periodo del informe', 'Report period')}>
         {TIME_FILTERS.map((filter) => (
           <button
             key={filter.label}
@@ -190,77 +201,77 @@ function HealthReportView({ activeRange, days, entries, onChangeRange, onBack })
             onClick={() => onChangeRange(filter.label)}
             type="button"
           >
-            {filter.label}
+            {language === 'en' ? RANGE_EN[filter.label] : filter.label}
           </button>
         ))}
       </div>
 
       <Panel className="report-coverage-panel">
         <div>
-          <span>Periodo seleccionado</span>
-          <strong>{activeRange}</strong>
+          <span>{tr('Periodo seleccionado', 'Selected period')}</span>
+          <strong>{language === 'en' ? RANGE_EN[activeRange] : activeRange}</strong>
         </div>
         <div>
-          <span>Días con registros</span>
-          <strong>{report.recordedDays} de {report.totalDays}</strong>
+          <span>{tr('Días con registros', 'Days with records')}</span>
+          <strong>{report.recordedDays} {tr('de', 'of')} {report.totalDays}</strong>
         </div>
         <div>
-          <span>Datos incluidos</span>
+          <span>{tr('Datos incluidos', 'Included records')}</span>
           <strong>{report.total}</strong>
         </div>
         <p>
           {report.recordedDays === report.totalDays && report.totalDays > 0
-            ? 'Hay información registrada para todos los días del periodo.'
-            : `Solo se muestran los ${report.recordedDays} días con información. Los días faltantes no se completan ni se estiman.`}
+            ? tr('Hay información registrada para todos los días del periodo.', 'Information is recorded for every day in this period.')
+            : tr(`Solo se muestran los ${report.recordedDays} días con información. Los días faltantes no se completan ni se estiman.`, `Only the ${report.recordedDays} days with information are shown. Missing days are not filled in or estimated.`)}
         </p>
       </Panel>
 
       <div className="report-sections-grid">
         <Panel className="report-records-panel">
           <div className="report-section-heading">
-            <span className="section-title">INDICADORES FÍSICOS</span>
-            <small>{report.physical.length} registros</small>
+            <span className="section-title">{tr('INDICADORES FÍSICOS', 'PHYSICAL METRICS')}</span>
+            <small>{report.physical.length} {tr('registros', 'records')}</small>
           </div>
           {report.physical.length ? (
             <div className="report-record-list">
               {report.physical.map((entry) => (
                 <article className="report-record-row" key={entry.id}>
                   <div>
-                    <strong>{METRIC_LABELS[entry.candidate.metric] || entry.candidate.metric}</strong>
-                    <time dateTime={entry.measured_at}>{formatWhen(entry.measured_at)}</time>
+                    <strong>{language === 'en' ? ANALYTICS_METRIC_EN[entry.candidate.metric] || entry.candidate.metric : METRIC_LABELS[entry.candidate.metric] || entry.candidate.metric}</strong>
+                    <time dateTime={entry.measured_at}>{formatWhen(entry.measured_at, language)}</time>
                   </div>
                   <span>{formatValue(entry.candidate)} {entry.candidate.unit}</span>
                 </article>
               ))}
             </div>
-          ) : <p className="report-empty-state">No hay indicadores físicos registrados en este periodo.</p>}
+          ) : <p className="report-empty-state">{tr('No hay indicadores físicos registrados en este periodo.', 'No physical metrics recorded in this period.')}</p>}
         </Panel>
 
         <Panel className="report-records-panel">
           <div className="report-section-heading">
-            <span className="section-title">CÓMO DIJISTE SENTIRTE</span>
-            <small>{report.wellbeing.length} registros</small>
+            <span className="section-title">{tr('CÓMO DIJISTE SENTIRTE', 'HOW YOU SAID YOU FELT')}</span>
+            <small>{report.wellbeing.length} {tr('registros', 'records')}</small>
           </div>
           {report.wellbeing.length ? (
             <div className="report-record-list">
               {report.wellbeing.map((entry) => (
                 <article className="report-record-row report-feeling-row" key={entry.id}>
-                  <p>{entry.candidate.original_text}</p>
-                  <time dateTime={entry.measured_at}>{formatWhen(entry.measured_at)}</time>
+                  <p>{language === 'en' ? ({ Cansado: 'Tired', Tranquilo: 'Calm', Tenso: 'Tense', 'Con energía': 'Energetic', Nostálgico: 'Nostalgic' }[entry.mood_word] || entry.mood_word) : entry.mood_word} · {tr('ánimo', 'mood')} {entry.mood_score}/5</p>
+                  <time dateTime={entry.date}>{new Date(`${entry.date}T12:00:00`).toLocaleDateString(language === 'en' ? 'en-US' : 'es-CO')}</time>
                 </article>
               ))}
             </div>
-          ) : <p className="report-empty-state">No hay registros sobre cómo te sentiste en este periodo.</p>}
+          ) : <p className="report-empty-state">{tr('No hay registros sobre cómo te sentiste en este periodo.', 'No mood records in this period.')}</p>}
         </Panel>
       </div>
 
       <Panel className="report-limits-panel">
-        <strong>Alcance de este resumen</strong>
+        <strong>{tr('Alcance de este resumen', 'Scope of this summary')}</strong>
         <ul>
-          <li>No incluye el diario emocional.</li>
-          <li>No completa ni inventa días sin registros.</li>
-          <li>No realiza diagnósticos ni evaluaciones clínicas.</li>
-          <li>No se envía automáticamente a ninguna persona o institución.</li>
+          <li>{tr('No incluye el diario emocional.', 'It does not include the emotional journal.')}</li>
+          <li>{tr('No completa ni inventa días sin registros.', 'It does not fill in or invent missing days.')}</li>
+          <li>{tr('No realiza diagnósticos ni evaluaciones clínicas.', 'It does not provide diagnoses or clinical assessments.')}</li>
+          <li>{tr('No se envía automáticamente a ninguna persona o institución.', 'It is not sent automatically to any person or institution.')}</li>
         </ul>
       </Panel>
     </div>
@@ -268,6 +279,7 @@ function HealthReportView({ activeRange, days, entries, onChangeRange, onBack })
 }
 
 export default function HealthAnalyticsPage({ onNotify }) {
+  const { language, tr } = useLanguage()
   const [activeRange, setActiveRange] = useState('7 días')
   const [data, setData] = useState({}) // code -> { history, analysis }
   const [heatmapHistories, setHeatmapHistories] = useState({})
@@ -275,6 +287,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
   const [loadedDays, setLoadedDays] = useState(null) // rango cuyos gráficos ya se cargaron
   const [heatmapLoaded, setHeatmapLoaded] = useState(false)
   const [entriesLoaded, setEntriesLoaded] = useState(false)
+  const [reportCheckIns, setReportCheckIns] = useState([])
   const [busyReport, setBusyReport] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
 
@@ -339,8 +352,9 @@ export default function HealthAnalyticsPage({ onNotify }) {
   const handleGenerateReport = async () => {
     setBusyReport(true)
     try {
-      const list = await listEntries()
+      const [list, mind] = await Promise.all([listEntries(), getCheckIns(3650)])
       setEntries(list.entries || [])
+      setReportCheckIns(mind.check_ins || [])
       setReportOpen(true)
     } catch (error) {
       onNotify?.(error.message)
@@ -355,6 +369,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
         activeRange={activeRange}
         days={days}
         entries={entries}
+        checkIns={reportCheckIns}
         onChangeRange={setActiveRange}
         onBack={() => setReportOpen(false)}
       />
@@ -362,12 +377,12 @@ export default function HealthAnalyticsPage({ onNotify }) {
   }
 
   return (
-    <div className="analytics-history-page" aria-label="Historial y evolución">
+    <div className="analytics-history-page" aria-label={tr('Historial y evolución', 'History and trends')}>
       {/* Header específico de la página */}
       <header className="page-header-pro">
         <div>
-          <h1>Historial y evolución</h1>
-          <p>HEALTH ANALYTICS · ¿CÓMO ESTÁ CAMBIANDO MI SALUD?</p>
+          <h1>{tr('Historial y evolución', 'History and trends')}</h1>
+          <p>{tr('ANÁLISIS DE SALUD · ¿CÓMO ESTÁ CAMBIANDO MI SALUD?', 'HEALTH ANALYTICS · HOW IS MY HEALTH CHANGING?')}</p>
         </div>
       </header>
 
@@ -380,7 +395,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
             onClick={() => setActiveRange(f.label)}
             type="button"
           >
-            {f.label}
+            {language === 'en' ? RANGE_EN[f.label] : f.label}
           </button>
         ))}
       </div>
@@ -405,9 +420,9 @@ export default function HealthAnalyticsPage({ onNotify }) {
           {/* Panel 1: SISTEMAS · ÚLTIMOS 7 DÍAS (días con al menos un registro real) */}
           <Panel className="systems-heatmap-panel">
             <div className="heatmap-header">
-              <span className="section-title">SISTEMAS · ÚLTIMOS 7 DÍAS</span>
+              <span className="section-title">{tr('SISTEMAS · ÚLTIMOS 7 DÍAS', 'SYSTEMS · LAST 7 DAYS')}</span>
               <div className="heatmap-days-labels">
-                {heatmapDays.map((day) => <span key={day}>{formatDay(day)}</span>)}
+                {heatmapDays.map((day) => <span key={day}>{formatDay(day, language)}</span>)}
               </div>
             </div>
 
@@ -415,8 +430,8 @@ export default function HealthAnalyticsPage({ onNotify }) {
               {HEATMAP_SYSTEMS.map((sys) => (
                 <div key={sys.name} className="heatmap-system-row">
                   <span className="system-row-name">
-                    {sys.name}
-                    {sys.metrics.length === 0 && <small className="system-row-note">sin fuente de datos</small>}
+                    {language === 'en' ? ({ Cardiovascular: 'Cardiovascular', Metabólica: 'Metabolic', Descanso: 'Rest', 'Músculo y hueso': 'Muscle and bone', Psicológica: 'Psychological' }[sys.name]) : sys.name}
+                    {sys.metrics.length === 0 && <small className="system-row-note">{tr('sin fuente de datos', 'no data source')}</small>}
                   </span>
                   <div className="heatmap-blocks-row">
                     {heatmapDays.map((day) => {
@@ -432,54 +447,54 @@ export default function HealthAnalyticsPage({ onNotify }) {
             {/* Leyenda del heatmap */}
             <div className="heatmap-legend">
               <span className="legend-chip">
-                <span className="chip-square square--stable" /> con registro
+                <span className="chip-square square--stable" /> {tr('con registro', 'recorded')}
               </span>
               <span className="legend-chip">
-                <span className="chip-square square--empty" /> sin registro
+                <span className="chip-square square--empty" /> {tr('sin registro', 'no record')}
               </span>
             </div>
           </Panel>
 
           {/* Panel 2: vista previa del informe */}
           <Panel className="weekly-report-panel">
-            <span className="section-title">INFORME</span>
+            <span className="section-title">{tr('INFORME', 'REPORT')}</span>
             <ul className="report-bullet-list">
               <li>
                 <span className="bullet-cyan" />
-                <span>Vista previa antes de descargar</span>
+                <span>{tr('Vista previa antes de descargar', 'Preview before downloading')}</span>
               </li>
               <li>
                 <span className="bullet-cyan" />
-                <span>Solo datos confirmados del periodo</span>
+                <span>{tr('Solo datos confirmados del periodo', 'Only confirmed data from this period')}</span>
               </li>
               <li>
                 <span className="bullet-cyan" />
-                <span>Sin diagnóstico ni envío automático</span>
+                <span>{tr('Sin diagnóstico ni envío automático', 'No diagnosis or automatic sharing')}</span>
               </li>
             </ul>
 
             <div className="report-buttons-group">
               <button className="primary-pill-btn report-btn" onClick={handleGenerateReport} disabled={busyReport} type="button">
-                <span>{busyReport ? 'Preparando…' : 'Ver informe'}</span>
+                <span>{busyReport ? tr('Preparando…', 'Preparing…') : tr('Ver informe', 'View report')}</span>
               </button>
             </div>
           </Panel>
 
           {/* Panel 3: COMPARACIONES */}
           <Panel className="comparisons-panel">
-            <span className="section-title">COMPARACIONES</span>
+            <span className="section-title">{tr('COMPARACIONES', 'COMPARISONS')}</span>
             <div className="comparisons-list">
               <div className="comparison-row">
-                <span>Registros de hoy</span>
-                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.today : <Skeleton w={24} h={14} />}</span>
+                <span>{tr('Registros de hoy', "Today's records")}</span>
+                <span className="comp-tag tag--stable">{comparisons.today}</span>
               </div>
               <div className="comparison-row">
-                <span>Últimos 7 días</span>
-                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.week : <Skeleton w={24} h={14} />}</span>
+                <span>{tr('Últimos 7 días', 'Last 7 days')}</span>
+                <span className="comp-tag tag--stable">{comparisons.week}</span>
               </div>
               <div className="comparison-row">
-                <span>Toda la misión</span>
-                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.total : <Skeleton w={24} h={14} />}</span>
+                <span>{tr('Toda la misión', 'Entire mission')}</span>
+                <span className="comp-tag tag--stable">{comparisons.total}</span>
               </div>
             </div>
           </Panel>

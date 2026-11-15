@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { LogOut, Volume2, VolumeX } from 'lucide-react'
 import Sidebar from '../components/layout/Sidebar'
 import HealthMonitorPage from './HealthMonitorPage'
 import MindTrackerPage from './MindTrackerPage'
@@ -18,7 +18,10 @@ import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
 import VitalsModal from '../components/modals/VitalsModal'
 import AstraVoicePanel from '../components/voice/AstraVoicePanel'
 import useHealthData from '../hooks/useHealthData'
-import { updateProfileImage } from '../api/client'
+import { recordWellnessAction, updateProfileImage } from '../api/client'
+import { localDateKey } from '../data/format'
+import LanguageSwitcher from '../components/ui/LanguageSwitcher'
+import { useLanguage } from '../app/LanguageContext'
 
 const CARD_ORDER = [
   'heart_rate',
@@ -29,18 +32,104 @@ const CARD_ORDER = [
   'glucose',
 ]
 
-export default function DashboardPage({ onNotify, session, onLogout, onUserUpdated }) {
+export default function DashboardPage({ onNotify, session, entryGreeting, onLogout, onUserUpdated }) {
+  const { language, tr } = useLanguage()
+  const greetingText = entryGreeting?.mode === 'register'
+    ? tr('Bienvenido a ASTRA. ¿Cómo te sientes hoy?', 'Welcome to ASTRA. How are you feeling today?')
+    : tr('Bienvenido de nuevo a ASTRA. ¿Cómo te sientes hoy?', 'Welcome back to ASTRA. How are you feeling today?')
   const [activePage, setActivePage] = useState('Dashboard')
   const [modalOpen, setModalOpen] = useState(false)
-  const { latest, entries, history, sleep, loading, reload } = useHealthData()
+  const [greetingVisible, setGreetingVisible] = useState(false)
+  const [greetingSpeaking, setGreetingSpeaking] = useState(false)
+  const [typedGreeting, setTypedGreeting] = useState('')
+  const [greetingRunCount, setGreetingRunCount] = useState(0)
+  const greetingTimer = useRef(null)
+  const typingTimer = useRef(null)
+  const greetingRun = useRef(0)
+  const { latest, entries, history, sleep, reload } = useHealthData()
   const sessionStartedAt = session?.created_at
   const sessionDay = sessionStartedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))
     : 0
 
+  const speakGreeting = useCallback(() => {
+    const run = ++greetingRun.current
+    setGreetingRunCount((c) => c + 1)
+    window.clearTimeout(greetingTimer.current)
+    window.clearInterval(typingTimer.current)
+    setGreetingSpeaking(true)
+    setGreetingVisible(true)
+    setTypedGreeting('')
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setTypedGreeting(greetingText)
+    } else {
+      let characterCount = 0
+      typingTimer.current = window.setInterval(() => {
+        characterCount += 1
+        setTypedGreeting(greetingText.slice(0, characterCount))
+        if (characterCount >= greetingText.length) window.clearInterval(typingTimer.current)
+      }, 55)
+    }
+    greetingTimer.current = window.setTimeout(() => setGreetingVisible(false), 9000)
+    if (!('speechSynthesis' in window)) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(greetingText)
+    utterance.lang = language === 'en' ? 'en-US' : 'es-CO'
+    utterance.rate = 0.92
+    utterance.volume = 0.85
+    utterance.voice = window.speechSynthesis.getVoices().find((voice) => voice.lang?.toLowerCase().startsWith(language)) || null
+    utterance.onstart = () => setGreetingSpeaking(true)
+    const finish = () => {
+      if (run !== greetingRun.current) return
+      setGreetingSpeaking(false)
+      window.clearTimeout(greetingTimer.current)
+      greetingTimer.current = window.setTimeout(() => setGreetingVisible(false), 6000)
+    }
+    utterance.onend = finish
+    utterance.onerror = finish
+    window.speechSynthesis.speak(utterance)
+  }, [greetingText, language])
+
+  const toggleGreeting = () => {
+    if (greetingSpeaking) {
+      greetingRun.current += 1
+      window.speechSynthesis?.cancel()
+      setGreetingSpeaking(false)
+      window.clearTimeout(greetingTimer.current)
+      setGreetingVisible(false)
+    } else {
+      speakGreeting()
+    }
+  }
+
+  useEffect(() => {
+    if (entryGreeting) speakGreeting()
+    return () => {
+      greetingRun.current += 1
+      window.clearTimeout(greetingTimer.current)
+      window.clearInterval(typingTimer.current)
+      window.speechSynthesis?.cancel()
+    }
+  }, [entryGreeting?.id, speakGreeting])
+
+  useEffect(() => {
+    if (!session?.user?.id) return
+    recordWellnessAction('onboarding_completed', localDateKey(new Date().toISOString())).catch(() => {})
+  }, [session?.user?.id])
+
+  const selectPage = (page) => {
+    setActivePage(page)
+    const action = page === 'Body Explorer'
+      ? 'explore_body'
+      : page === 'Space Health Insights'
+        ? 'explore_insights'
+        : null
+    if (action) recordWellnessAction(action, localDateKey(new Date().toISOString())).catch(() => {})
+  }
+
   const saved = async () => {
     await reload()
-    onNotify?.('Registro confirmado y guardado en SQLite.')
+    onNotify?.(tr('Registro confirmado y guardado en SQLite.', 'Record confirmed and saved.'))
   }
 
   const voiceSaved = async () => {
@@ -51,7 +140,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
   const saveProfileImage = async (url) => {
     const user = await updateProfileImage(url)
     onUserUpdated?.(user)
-    onNotify?.(url ? 'Foto de perfil actualizada.' : 'Se restauró la imagen predeterminada.')
+    onNotify?.(url ? tr('Foto de perfil actualizada.', 'Profile photo updated.') : tr('Se restauró la imagen predeterminada.', 'Default image restored.'))
   }
 
   const renderDashboard = () => (
@@ -101,7 +190,19 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
 
       {/* Columna Derecha: Humano Holográfico 3D */}
       <div className="dashboard-visualizer-column">
-        <HumanVisualizer latest={latest} />
+        <HumanVisualizer
+          isWaving={greetingSpeaking || greetingVisible}
+          onToggleGreeting={toggleGreeting}
+          greetingSpeaking={greetingSpeaking}
+          greetingRun={greetingRunCount}
+        />
+        {greetingVisible && (
+          <div className={`dashboard-greeting ${greetingSpeaking ? 'is-speaking' : ''} ${typedGreeting.length < greetingText.length ? 'is-typing' : ''}`}>
+            <div className="dashboard-greeting__halo" aria-hidden="true"><i /><i /><i /></div>
+            <p role="status" aria-label={greetingText}><span aria-hidden="true">{typedGreeting}</span></p>
+            <div className="dashboard-greeting__wave" aria-hidden="true">{Array.from({ length: 13 }, (_, index) => <i key={index} />)}</div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -133,7 +234,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
       {/* Sidebar fijo a la izquierda */}
       <Sidebar
         activeItem={activePage}
-        onSelect={setActivePage}
+        onSelect={selectPage}
         onNotify={onNotify}
         sessionDay={sessionDay}
         sessionStartedAt={sessionStartedAt}
@@ -145,6 +246,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
         {/* Barra superior con onda ECG y botón de cierre de sesión */}
         <header className="dashboard-top-bar">
           <div className="dashboard-top-bar__status">
+            <LanguageSwitcher />
             <svg className="ecg-pulse-svg" viewBox="0 0 50 18" fill="none" aria-hidden="true">
               <path
                 d="M 0 9 H 14 L 18 2 L 23 16 L 27 6 L 30 11 L 33 9 H 50"
@@ -158,11 +260,11 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
               <button
                 className="top-bar-logout-btn"
                 onClick={onLogout}
-                title="Cerrar sesión"
+                title={tr('Cerrar sesión', 'Log out')}
                 type="button"
               >
                 <LogOut size={13} />
-                <span>Cerrar sesión</span>
+                <span>{tr('Cerrar sesión', 'Log out')}</span>
               </button>
             )}
           </div>

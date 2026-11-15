@@ -99,3 +99,7 @@ button:focus-visible, input:focus-visible {
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+.language-switcher { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 4px 8px; border: 1px solid rgba(57, 205, 245, .42); border-radius: 999px; background: rgba(2, 24, 53, .78); color: #8bd9f2; white-space: nowrap; }
+.language-switcher button { min-width: 28px; min-height: 28px; padding: 2px 4px; border: 0; border-radius: 14px; background: transparent; color: #9bbbd0; cursor: pointer; font-size: .78rem; font-weight: 700; }
+.language-switcher button.is-active { background: #36d5f5; color: #05243d; }
+.language-switcher button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }

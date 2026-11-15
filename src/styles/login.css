@@ -41,7 +41,7 @@ body:has(.login-page),
 .hud-corner--tl::after, .hud-corner--bl::after { left: 0; width: 1px; height: 28px; }.hud-corner--tr::after, .hud-corner--br::after { right: 0; width: 1px; height: 28px; }
 .hud-corner--tl::before, .hud-corner--bl::before { left: 0; }.hud-corner--tr::before, .hud-corner--br::before { right: 0; }.hud-corner--tl::after, .hud-corner--tr::after { top: 0; }.hud-corner--bl::after, .hud-corner--br::after { bottom: 0; }
 
-.login-header { position: relative; z-index: 10; grid-column: 1 / -1; grid-row: 1; align-self: stretch; display: flex; align-items: center; justify-content: flex-start; }
+.login-header { position: relative; z-index: 10; grid-column: 1 / -1; grid-row: 1; align-self: stretch; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .login-brand { min-width: 0; max-width: 100%; display: flex; align-items: center; gap: 18px; }
 .login-brand img { width: 112px; height: 92px; object-fit: contain; filter: drop-shadow(0 0 13px rgba(26, 215, 255, .32)); }
 .login-brand div { display: flex; flex-direction: column; }
@@ -154,7 +154,7 @@ body:has(.login-page),
     overflow-y: visible;
   }
   .login-page__frame { position: fixed; inset: 10px; }
-  .login-header { flex: 0 0 auto; min-height: 76px; justify-content: center; }
+  .login-header { flex: 0 0 auto; min-height: 76px; justify-content: space-between; }
   .login-brand { gap: 10px; justify-content: center; }
   .login-brand img { width: 62px; height: 56px; }
   .login-brand strong { font-size: clamp(1.3rem, 6vw, 1.72rem); letter-spacing: .18em; }

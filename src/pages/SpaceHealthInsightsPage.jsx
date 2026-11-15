@@ -1,111 +1,97 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp } from 'lucide-react'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
-import { formatDay, formatWhen } from '../data/format'
+import { formatDay, formatValue, formatWhen, localDateKey } from '../data/format'
+import { useLanguage } from '../app/LanguageContext'
 
-// Nodos del resumen: solo indicadores con análisis real en el backend.
-const NODES = [
-  { code: 'sleep', title: 'SUEÑO', className: 'node--sleep', arrowClass: 'val--down' },
-  { code: 'heart_rate', title: 'PULSO', className: 'node--fatigue', arrowClass: 'val--up-warn' },
-  { code: 'blood_pressure', title: 'PRESIÓN', className: 'node--stress', arrowClass: 'val--up-warn' },
-  { code: 'oxygen_saturation', title: 'SATURACIÓN', className: 'node--activity', arrowClass: 'val--down-gold' },
-  { code: 'glucose', title: 'GLUCOSA', className: 'node--mood', arrowClass: 'val--down' },
+const METRIC_EN = { sleep: 'Sleep', heart_rate: 'Heart rate', glucose: 'Glucose', oxygen_saturation: 'Oxygen saturation', blood_pressure: 'Blood pressure' }
+
+const METRICS = [
+  { code: 'sleep', label: 'Sueño', color: '#36d9fa' },
+  { code: 'heart_rate', label: 'Pulso', color: '#f287b7' },
+  { code: 'glucose', label: 'Glucosa', color: '#46d9bd' },
+  { code: 'oxygen_saturation', label: 'Saturación', color: '#f7c76a' },
+  { code: 'blood_pressure', label: 'Presión', color: '#ab8af7' },
 ]
 
-const round1 = (n) => Math.round(n * 10) / 10
-
-function nodeData(code, analysis) {
-  if (!analysis) return { value: 's/r', change: null, unit: '' }
-  if (code === 'sleep') {
-    const stats = analysis.personal_calculation?.stats
-    if (!stats) return { value: 's/r', change: null, unit: 'h' }
-    return {
-      value: `${round1(stats.mean_hours)} h`,
-      change: stats.change_last_minus_first_hours,
-      unit: 'h',
-    }
-  }
-  const series = analysis.personal_calculation?.series?.[0]
-  if (!series?.stats) return { value: 's/r', change: null, unit: '' }
-  const mean = series.stats.mean
-  return {
-    value: code === 'blood_pressure' ? `${Math.round(mean[0])}/${Math.round(mean[1])} ${series.unit}` : `${round1(mean[0])} ${series.unit}`,
-    change: series.stats.change_last_minus_first?.[0] ?? null,
-    unit: series.unit,
-  }
+function daysInRange(count) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date()
+    date.setHours(12, 0, 0, 0)
+    date.setDate(date.getDate() - count + 1 + index)
+    return localDateKey(date.toISOString())
+  })
 }
 
-function SleepCurve({ analysis }) {
-  const nights = analysis?.personal_calculation?.nights ?? []
-  const message = analysis?.personal_calculation?.message
-
-  if (!nights.length) {
-    return (
-      <>
-        <p className="chart-empty">Sin registros de sueño confirmados en la ventana. Registra tus horas para ver la curva.</p>
-        {message && <p className="sleep-trend-footnote">{message}</p>}
-      </>
-    )
-  }
-
-  const width = 320
-  const height = 100
-  const pad = 5
-  const values = nights.map((n) => n.hours)
-  let min = Math.min(...values)
-  let max = Math.max(...values)
+function InsightChart({ entries, metric, range }) {
+  const { language, tr } = useLanguage()
+  const metricName = language === 'en' ? METRIC_EN[metric.code] : metric.label
+  const days = useMemo(() => daysInRange(range), [range])
+  const byDay = useMemo(() => {
+    const results = new Map()
+    entries.forEach((entry) => {
+      if (entry.candidate?.kind !== 'measurement' || entry.candidate.metric !== metric.code) return
+      const day = localDateKey(entry.measured_at)
+      if (!results.has(day) || entry.measured_at > results.get(day).measured_at) results.set(day, entry)
+    })
+    return results
+  }, [entries, metric.code])
+  const recorded = days.map((day) => byDay.get(day)).filter(Boolean)
+  const units = [...new Set(recorded.map((entry) => entry.candidate.unit))]
+  const chartEntries = units.length > 1 ? recorded.filter((entry) => entry.candidate.unit === recorded.at(-1)?.candidate.unit) : recorded
+  const values = chartEntries.map((entry) => Number(entry.candidate.values?.[0])).filter(Number.isFinite)
+  let min = values.length ? Math.min(...values) : 0
+  let max = values.length ? Math.max(...values) : 1
   if (min === max) { min -= 1; max += 1 }
-  const coords = values.map((v, i) => [
-    pad + (i / Math.max(1, values.length - 1)) * (width - pad * 2),
-    pad + (1 - (v - min) / (max - min)) * (height - pad * 2 - 12),
-  ])
-  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
-  const area = `${line} L ${coords.at(-1)[0]} ${height - 10} L ${coords[0][0]} ${height - 10} Z`
-  const last = coords.at(-1)
+  const left = 38
+  const right = 965
+  const top = 18
+  const bottom = 170
+  const x = (index) => left + index / Math.max(1, range - 1) * (right - left)
+  const y = (value) => bottom - (value - min) / (max - min) * (bottom - top)
+  let path = ''
+  let previous = false
+  const points = []
+  days.forEach((day, index) => {
+    const entry = byDay.get(day)
+    const value = Number(entry?.candidate?.values?.[0])
+    if (!entry || !chartEntries.includes(entry) || !Number.isFinite(value)) { previous = false; return }
+    const point = { x: x(index), y: y(value), value, day }
+    points.push(point)
+    path += `${previous ? ' L' : ' M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`
+    previous = true
+  })
+  const ticks = days.map((day, index) => ({ day, index })).filter(({ index }) => range === 7 || index === 0 || index === range - 1 || index % Math.ceil(range / 6) === 0)
 
-  return (
-    <>
-      <div className="sleep-curve-container">
-        <div className="sleep-curve-y">
-          <span>{round1(max)}</span>
-          <span>{round1((max + min) / 2)}</span>
-          <span>{round1(min)}</span>
-        </div>
-        <div className="sleep-curve-svg-wrap">
-          <svg viewBox={`0 0 ${width} ${height}`} className="sleep-trend-svg" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="sleepCurveFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#31dcff" stopOpacity="0.35" />
-                <stop offset="100%" stopColor="#31dcff" stopOpacity="0.0" />
-              </linearGradient>
-            </defs>
-            <line x1="0" y1="10" x2={width} y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-            <line x1="0" y1="45" x2={width} y2="45" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-            <line x1="0" y1="80" x2={width} y2="80" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-            <path d={area} fill="url(#sleepCurveFill)" />
-            <path d={line} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
-            <circle cx={last[0]} cy={last[1]} r="4.5" fill="#ffffff" stroke="#00b4f0" strokeWidth="2" />
-          </svg>
-          <div className="sleep-curve-x">
-            <span>{formatDay(nights[0].date)}</span>
-            <span>{formatDay(nights[Math.floor((nights.length - 1) / 2)].date)}</span>
-            <span>{formatDay(nights.at(-1).date)}</span>
-          </div>
-        </div>
-      </div>
-      {message && <p className="sleep-trend-footnote">{message}</p>}
-    </>
-  )
+  return <>
+    <div className="shi-plot" role="img" aria-label={tr(`Gráfica de ${metric.label}. ${recorded.length} fechas con registros en ${range} días; las fechas sin datos quedan vacías.`, `${metricName} chart. ${recorded.length} recorded dates in ${range} days; dates without data remain empty.`)}>
+      <svg viewBox="0 0 1000 205" preserveAspectRatio="none">
+        {[0, .5, 1].map((fraction) => <g key={fraction}><line x1={left} x2={right} y1={bottom - fraction * (bottom - top)} y2={bottom - fraction * (bottom - top)} className="shi-grid-line" /><text x="3" y={bottom - fraction * (bottom - top) + 4} className="shi-axis-label">{(min + fraction * (max - min)).toFixed(max - min < 3 ? 1 : 0)}</text></g>)}
+        {ticks.map(({ day, index }) => <text key={day} x={x(index)} y="198" textAnchor={index === 0 ? 'start' : index === range - 1 ? 'end' : 'middle'} className="shi-axis-label">{formatDay(day, language)}</text>)}
+        <path d={path.trim()} fill="none" stroke={metric.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((point) => <circle key={point.day} cx={point.x} cy={point.y} r="5" fill={metric.color}><title>{`${point.day}: ${point.value}`}</title></circle>)}
+      </svg>
+      {points.length === 0 && <p className="shi-empty-plot">{tr(`Sin registros de ${metric.label.toLowerCase()} en este período.`, `No ${metricName.toLowerCase()} records in this period.`)}</p>}
+    </div>
+    <div className="shi-chart-caption"><span>{tr(`Registraste ${metric.label.toLowerCase()} en ${recorded.length} de los últimos ${range} días.`, `You recorded ${metricName.toLowerCase()} on ${recorded.length} of the last ${range} days.`)}</span><span>{tr(`${range - recorded.length} fechas sin registro; no se estiman.`, `${range - recorded.length} dates without records; no estimates are made.`)}</span></div>
+    {units.length > 1 && <p className="shi-unit-note">{tr(`Hay unidades distintas. La gráfica muestra solo ${chartEntries.at(-1)?.candidate.unit}; las tarjetas conservan el valor original.`, `Different units were recorded. The chart shows only ${chartEntries.at(-1)?.candidate.unit}; cards keep the original values.`)}</p>}
+    {metric.code === 'blood_pressure' && recorded.length > 0 && <p className="shi-unit-note">{tr('La gráfica muestra el primer valor (sistólica); la tarjeta conserva ambos valores.', 'The chart shows the first value (systolic); the card keeps both values.')}</p>}
+  </>
 }
 
-export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) {
-  const [analyses, setAnalyses] = useState({})
+export default function SpaceHealthInsightsPage({ onNotify }) {
+  const { language, tr } = useLanguage()
+  const [entries, setEntries] = useState([])
+  const [entriesError, setEntriesError] = useState(false)
+  const [entriesLoading, setEntriesLoading] = useState(true)
   const [studies, setStudies] = useState([])
   const [entryCount, setEntryCount] = useState(null)
   const [analysesLoaded, setAnalysesLoaded] = useState(false)
   const [studiesLoaded, setStudiesLoaded] = useState(false)
+  const [selectedCode, setSelectedCode] = useState('sleep')
+  const [range, setRange] = useState(7)
+  const [analysis, setAnalysis] = useState(null)
   const [busyExport, setBusyExport] = useState(false)
 
   useEffect(() => {
@@ -125,9 +111,24 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
     return () => { cancelled = true }
   }, [])
 
-  const sleep = analyses.sleep
-  const education = sleep?.education
-  const cannotConclude = sleep?.cannot_conclude ?? []
+  useEffect(() => {
+    let cancelled = false
+    setAnalysis(null)
+    getAnalysis(selectedCode, range).then((result) => { if (!cancelled) setAnalysis(result) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [selectedCode, range])
+
+  const days = useMemo(() => daysInRange(range), [range])
+  const visibleEntries = useMemo(() => entries.filter((entry) => entry.candidate?.kind === 'measurement' && days.includes(localDateKey(entry.measured_at))), [entries, days])
+  const latestByMetric = useMemo(() => {
+    const latest = new Map()
+    visibleEntries.forEach((entry) => {
+      const code = entry.candidate.metric
+      if (!latest.has(code) || entry.measured_at > latest.get(code).measured_at) latest.set(code, entry)
+    })
+    return latest
+  }, [visibleEntries])
+  const selectedMetric = METRICS.find((item) => item.code === selectedCode)
 
   const handleExport = async () => {
     setBusyExport(true)
@@ -140,12 +141,9 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
       link.download = `astra-health-export-${new Date().toISOString().slice(0, 10)}.json`
       link.click()
       URL.revokeObjectURL(url)
-      onNotify?.('Informe JSON descargado con tus registros reales.')
-    } catch (error) {
-      onNotify?.(error.message)
-    } finally {
-      setBusyExport(false)
-    }
+      onNotify?.(tr('Datos JSON descargados con tus registros reales.', 'JSON file downloaded with your real records.'))
+    } catch (error) { onNotify?.(error.message) }
+    finally { setBusyExport(false) }
   }
 
   return (

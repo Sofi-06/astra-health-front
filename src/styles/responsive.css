@@ -1,5 +1,13 @@
 /* ─── Responsive Media Queries for Futuristic Dashboard ─── */
 
+@media (max-width: 600px) {
+  .dashboard-top-bar__status { gap: 6px; }
+  .dashboard-top-bar .ecg-pulse-svg { display: none; }
+  .dashboard-top-bar .language-switcher { padding-inline: 4px; }
+  .dashboard-top-bar .language-switcher svg { display: none; }
+  .dashboard-top-bar .language-switcher button { min-width: 23px; }
+}
+
 @media (max-width: 1400px) {
   .dashboard-main-layout {
     grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);

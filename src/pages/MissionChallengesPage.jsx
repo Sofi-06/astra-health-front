@@ -1,163 +1,127 @@
-import { useEffect, useState } from 'react'
-import {
-  Activity,
-  Award,
-  CheckCircle2,
-  ChevronRight,
-  Flame,
-  Heart,
-  Hexagon,
-  Moon,
-  Shield,
-  Sparkles,
-  Sun,
-  Target,
-  Trophy,
-  Zap,
-} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Award, Heart, Hexagon, Moon, Shield, Sparkles, Sun, Target } from 'lucide-react'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { getAnalysis, listEntries } from '../api/client'
 import { localDateKey } from '../data/format'
+import { getRewards } from '../api/client'
+import { useLanguage } from '../app/LanguageContext'
 
-const BADGES = [
-  { id: 1, name: 'Primer contacto', icon: 'helmet', unlocked: true, color: 'gold', progress: 100 },
-  { id: 2, name: 'Corazón en órbita', icon: 'heart', unlocked: true, color: 'gold', progress: 100 },
-  { id: 3, name: 'Guardián del descanso', icon: 'moon', unlocked: false, color: 'blue', progress: 60 },
-  { id: 4, name: 'Mente estelar', icon: 'sparkle', unlocked: false, color: 'blue', progress: 40 },
-  { id: 5, name: 'Fuerza gravitacional', icon: 'hex', unlocked: false, color: 'blue', progress: 30 },
-  { id: 6, name: 'Escudo protector', icon: 'shield', unlocked: false, color: 'blue', progress: 20 },
-  { id: 7, name: 'Constancia orbital', icon: 'target', unlocked: false, color: 'blue', progress: 15 },
-  { id: 8, name: 'Explorador integral', icon: 'sun', unlocked: false, color: 'blue', progress: 10 },
+const BADGE_EN = {
+  first_contact: { name: 'First contact', condition: 'Complete the initial walkthrough.' },
+  heart_in_orbit: { name: 'Heart in orbit', condition: 'Save your first check-in; optional scales may stay empty.' },
+  rest_guardian: { name: 'Rest guardian', condition: 'Record sleep on 3 different dates; no required number of hours.' },
+  stellar_mind: { name: 'Stellar mind', condition: 'Voluntarily finish a breathing session.' },
+  gravity_strength: { name: 'Gravity strength', condition: 'Complete your first weekly mission.' },
+  protective_shield: { name: 'Protective shield', condition: 'Set your first personal reminder.' },
+  orbital_consistency: { name: 'Orbital consistency', condition: 'Check in on 5 different days; they need not be consecutive.' },
+  integral_explorer: { name: 'Whole-body explorer', condition: 'Explore Body Explorer and Space Health Insights.' },
+}
+
+const BADGE_META = {
+  first_contact: { icon: 'helmet', condition: 'Completar el recorrido inicial.' },
+  heart_in_orbit: { icon: 'heart', condition: 'Guardar el primer check-in; las escalas opcionales pueden quedar vacías.' },
+  rest_guardian: { icon: 'moon', condition: 'Registrar sueño en 3 fechas distintas, sin exigir una cantidad de horas.' },
+  stellar_mind: { icon: 'sparkle', condition: 'Finalizar voluntariamente una sesión de respiración.' },
+  gravity_strength: { icon: 'hex', condition: 'Completar la primera misión semanal.' },
+  protective_shield: { icon: 'shield', condition: 'Configurar el primer recordatorio propio.' },
+  orbital_consistency: { icon: 'target', condition: 'Hacer check-in en 5 días distintos; no necesitan ser consecutivos.' },
+  integral_explorer: { icon: 'sun', condition: 'Explorar Body Explorer y Space Health Insights.' },
+}
+
+const BADGE_CATALOG = [
+  { code: 'first_contact', name: 'Primer contacto', xp: 50, target: 1 },
+  { code: 'heart_in_orbit', name: 'Corazón en órbita', xp: 75, target: 1 },
+  { code: 'rest_guardian', name: 'Guardián del descanso', xp: 75, target: 3 },
+  { code: 'stellar_mind', name: 'Mente estelar', xp: 50, target: 1 },
+  { code: 'gravity_strength', name: 'Fuerza gravitacional', xp: 125, target: 1 },
+  { code: 'protective_shield', name: 'Escudo protector', xp: 150, target: 1 },
+  { code: 'orbital_consistency', name: 'Constancia orbital', xp: 100, target: 5 },
+  { code: 'integral_explorer', name: 'Explorador integral', xp: 100, target: 2 },
 ]
 
-export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
-  const [selectedBadge, setSelectedBadge] = useState(BADGES[2])
-  const [weekly, setWeekly] = useState(null)
+const EMPTY_REWARDS = {
+  xp: 0,
+  badges: BADGE_CATALOG.map((badge) => ({ ...badge, progress: 0, unlocked: false })),
+  weekly_mission: {
+    name: 'Operación Bienestar',
+    week: '',
+    complete: false,
+    xp_awarded: false,
+    conditions: [
+      { code: 'check_in', label: 'Completar un check-in', complete: false },
+      { code: 'pause', label: 'Completar una pausa voluntaria', complete: false },
+    ],
+  },
+}
 
-  // Conteos reales de la semana calculados desde los registros confirmados.
+function BadgeIcon({ icon }) {
+  if (icon === 'helmet') return <span className="custom-badge-icon">⛑</span>
+  if (icon === 'heart') return <Heart size={20} />
+  if (icon === 'moon') return <Moon size={20} />
+  if (icon === 'sparkle') return <Sparkles size={20} />
+  if (icon === 'hex') return <Hexagon size={20} />
+  if (icon === 'shield') return <Shield size={20} />
+  if (icon === 'target') return <Target size={20} />
+  if (icon === 'sun') return <Sun size={20} />
+  return <Award size={20} />
+}
+
+export default function MissionChallengesPage({ onNotify }) {
+  const { language, tr } = useLanguage()
+  const badgeName = (badge) => language === 'en' ? BADGE_EN[badge.code]?.name || badge.name : badge.name
+  const [rewards, setRewards] = useState(EMPTY_REWARDS)
+  const [selectedCode, setSelectedCode] = useState('first_contact')
+
   useEffect(() => {
-    let cancelled = false
-    const weekAgo = Date.now() - 7 * 86400000
-    Promise.all([listEntries().catch(() => ({ entries: [] })), getAnalysis('sleep', 7).catch(() => null)])
-      .then(([list, sleep]) => {
-        if (cancelled) return
-        const week = (list.entries || []).filter((e) => new Date(e.measured_at).getTime() >= weekAgo)
-        const days = new Set(week.map((e) => localDateKey(e.measured_at))).size
-        const metrics = new Set(week.filter((e) => e.candidate?.kind === 'measurement').map((e) => e.candidate.metric)).size
-        const nights = sleep?.personal_calculation?.nights_recorded ?? 0
-        setWeekly({ days, metrics, nights, total: list.count ?? (list.entries || []).length })
-      })
-    return () => { cancelled = true }
+    getRewards().then(setRewards).catch(() => {
+      // El catálogo bloqueado sigue visible si el backend aún no fue reiniciado.
+    })
   }, [])
 
-  const weeklyMetrics = weekly
-    ? [
-        { label: 'Días con registros esta semana', value: weekly.days, target: 7 },
-        { label: 'Noches de sueño registradas', value: weekly.nights, target: 7 },
-        { label: 'Indicadores distintos registrados', value: weekly.metrics, target: 6 },
-        { label: 'Registros totales en la misión', value: weekly.total, target: Math.max(weekly.total, 1) },
-      ]
-    : []
-
-  const handleRegisterSleep = () => {
-    onOpenVitals?.()
-  }
-
-  const renderBadgeIcon = (icon) => {
-    switch (icon) {
-      case 'helmet':
-        return <span className="custom-badge-icon">⛑</span>
-      case 'heart':
-        return <Heart size={20} className="badge-svg-icon" />
-      case 'moon':
-        return <Moon size={20} className="badge-svg-icon" />
-      case 'sparkle':
-        return <Sparkles size={20} className="badge-svg-icon" />
-      case 'hex':
-        return <Hexagon size={20} className="badge-svg-icon" />
-      case 'shield':
-        return <Shield size={20} className="badge-svg-icon" />
-      case 'target':
-        return <Target size={20} className="badge-svg-icon" />
-      case 'sun':
-        return <Sun size={20} className="badge-svg-icon" />
-      default:
-        return <Award size={20} />
-    }
-  }
+  const badges = rewards?.badges || []
+  const selected = badges.find((badge) => badge.code === selectedCode) || badges[0]
+  const mission = rewards?.weekly_mission
+  const totalAvailable = useMemo(() => badges.reduce((sum, badge) => sum + badge.xp, 0) + 150, [badges])
+  const xpProgress = totalAvailable ? Math.min(100, ((rewards?.xp || 0) / totalAvailable) * 100) : 0
 
   return (
-    <div className="challenges-page-pro" aria-label="Misiones e insignias">
-      {/* Header específico de la página */}
+    <div className="challenges-page-pro" aria-label={tr('Misiones e insignias', 'Missions and badges')}>
       <header className="page-header-pro">
         <div>
-          <h1>Misiones e insignias</h1>
-          <p>MISSION CHALLENGES · CONSTANCIA Y AUTOCUIDADO</p>
+          <h1>{tr('Misiones e insignias', 'Missions and badges')}</h1>
+          <p>{tr('OBJETIVOS OPCIONALES · SIN PREMIAR VALORES DE SALUD', 'OPTIONAL GOALS · NO REWARDS FOR HEALTH VALUES')}</p>
         </div>
       </header>
 
-      {/* Tarjeta Superior: Hero Especialista */}
       <Panel className="challenges-hero-card">
         <div className="hero-astronaut-avatar-wrap">
-          <img src="/assets/astronauta.png" alt="Astronauta" className="hero-astronaut-img" />
+          <img src="/assets/astronauta.png" alt={tr('Astronauta', 'Astronaut')} className="hero-astronaut-img" />
         </div>
-
         <div className="hero-level-info">
-          <span className="hero-kicker">NIVEL 03</span>
-          <h2>Especialista</h2>
-          <p className="hero-desc">Mantiene sus rutinas de autocuidado</p>
-
+          <span className="hero-kicker">{tr('PROGRESO PERSONAL', 'PERSONAL PROGRESS')}</span>
+          <h2>{rewards?.xp || 0} XP</h2>
+          <p className="hero-desc">{tr('Los puntos reconocen acciones voluntarias, no cómo te sentiste.', 'Points recognize voluntary actions, not how you felt.')}</p>
           <div className="hero-progress-container">
-            <div className="hero-xp-track">
-              <div className="hero-xp-bar-fill" style={{ width: '73.5%' }} />
-            </div>
-            <div className="hero-xp-meta">
-              <span>735 XP</span>
-              <span>Comandante · 1,000 XP</span>
-            </div>
+            <div className="hero-xp-track"><div className="hero-xp-bar-fill" style={{ width: `${xpProgress}%` }} /></div>
+            <div className="hero-xp-meta"><span>{badges.filter((badge) => badge.unlocked).length} {tr('insignias', 'badges')}</span><span>{mission?.complete ? tr('Misión semanal completa', 'Weekly mission complete') : tr('Misión semanal en progreso', 'Weekly mission in progress')}</span></div>
           </div>
         </div>
-
-        {/* Ring circular de XP dorado */}
         <div className="hero-xp-ring-wrap">
           <svg viewBox="0 0 100 100" className="hero-ring-svg">
-            <circle
-              cx="50"
-              cy="50"
-              r="40"
-              fill="none"
-              stroke="rgba(255, 214, 90, 0.15)"
-              strokeWidth="7"
-            />
-            <circle
-              cx="50"
-              cy="50"
-              r="40"
-              fill="none"
-              stroke="#ffd25a"
-              strokeWidth="7"
-              strokeDasharray="251.2"
-              strokeDashoffset={251.2 * (1 - 0.735)}
-              strokeLinecap="round"
-              transform="rotate(-90 50 50)"
-              className="gold-ring-glow"
-            />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255, 214, 90, 0.15)" strokeWidth="7" />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#ffd25a" strokeWidth="7" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - xpProgress / 100)} strokeLinecap="round" transform="rotate(-90 50 50)" className="gold-ring-glow" />
           </svg>
-          <div className="hero-ring-inner">
-            <strong>735</strong>
-            <small>XP</small>
-          </div>
+          <div className="hero-ring-inner"><strong>{rewards?.xp || 0}</strong><small>XP</small></div>
         </div>
       </Panel>
 
-      {/* Tarjeta Intermedia: Misión Semanal */}
       <Panel className="challenges-weekly-card">
         <div className="weekly-card-header">
           <div>
-            <span className="section-title">MISIÓN SEMANAL</span>
-            <h3>Operación Bienestar</h3>
-            <span className="weekly-xp-badge">+150 XP</span>
+            <span className="section-title">{tr('MISIÓN SEMANAL', 'WEEKLY MISSION')}</span>
+            <h3>{tr(mission?.name || 'Operación Bienestar', 'Operation Wellbeing')}</h3>
+            <span className="weekly-xp-badge">+150 XP · {tr('una vez esta semana', 'once this week')}</span>
           </div>
         </div>
 
@@ -184,51 +148,37 @@ export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
             </div>
           ))}
         </div>
+        {mission?.xp_awarded && <span className="mission-awarded">{tr(`XP entregado para ${mission.week}; no volverá a sumarse.`, `XP awarded for ${mission.week}; it will not be added again.`)}</span>}
       </Panel>
 
-      {/* Tarjeta Inferior Grande: Colección de Insignias */}
       <Panel className="challenges-badges-collection-card">
-        <span className="section-title">COLECCIÓN DE INSIGNIAS</span>
-
+        <span className="section-title">{tr('COLECCIÓN DE INSIGNIAS · LOGROS ÚNICOS', 'BADGE COLLECTION · ONE-TIME ACHIEVEMENTS')}</span>
         <div className="badges-hex-row">
-          {BADGES.map((b) => {
-            const isGold = b.color === 'gold'
-            return (
-              <div
-                key={b.id}
-                className={`badge-item-wrap ${isGold ? 'badge--gold' : 'badge--blue'} ${selectedBadge.id === b.id ? 'is-selected' : ''}`}
-                onClick={() => setSelectedBadge(b)}
-              >
-                <div className="badge-hexagon">
-                  <div className="badge-hexagon-inner">
-                    {renderBadgeIcon(b.icon)}
-                  </div>
-                </div>
-
-                <span className="badge-label">{b.name}</span>
-
-                {!isGold && (
-                  <div className="badge-mini-track">
-                    <div className="badge-mini-fill" style={{ width: `${b.progress}%` }} />
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {badges.map((badge) => (
+            <button
+              key={badge.code}
+              className={`badge-item-wrap ${badge.unlocked ? 'badge--gold' : 'badge--blue'} ${selectedCode === badge.code ? 'is-selected' : ''}`}
+              onClick={() => setSelectedCode(badge.code)}
+              type="button"
+            >
+              <div className="badge-hexagon"><div className="badge-hexagon-inner"><BadgeIcon icon={BADGE_META[badge.code]?.icon} /></div></div>
+              <span className="badge-label">{badgeName(badge)}</span>
+              <span className="badge-xp">{badge.xp} XP</span>
+              {!badge.unlocked && <div className="badge-mini-track"><div className="badge-mini-fill" style={{ width: `${Math.min(100, (badge.progress / badge.target) * 100)}%` }} /></div>}
+            </button>
+          ))}
         </div>
 
-        {/* Barra inferior: Próxima Insignia */}
-        <div className="next-badge-footer-bar">
-          <div className="next-badge-info">
-            <span className="next-badge-kicker">PRÓXIMA INSIGNIA</span>
-            <strong>{selectedBadge.name}</strong>
-            {weekly ? <p>{`Llevas ${weekly.nights} registros de sueño en los últimos 7 días`}</p> : <Skeleton w="80%" h={12} />}
+        {selected && (
+          <div className="next-badge-footer-bar">
+            <div className="next-badge-info">
+              <span className="next-badge-kicker">{selected.unlocked ? tr('INSIGNIA CONSEGUIDA', 'BADGE EARNED') : tr('CÓMO CONSEGUIRLA', 'HOW TO EARN IT')}</span>
+              <strong>{badgeName(selected)} · {selected.xp} XP</strong>
+              <p>{language === 'en' ? BADGE_EN[selected.code]?.condition : BADGE_META[selected.code]?.condition}</p>
+              <span className="badge-condition-progress">{tr('Progreso', 'Progress')}: {selected.progress}/{selected.target}</span>
+            </div>
           </div>
-
-          <button className="primary-pill-btn register-sleep-btn" onClick={handleRegisterSleep} type="button">
-            <span>Registrar sueño</span>
-          </button>
-        </div>
+        )}
       </Panel>
     </div>
   )

@@ -3,6 +3,9 @@ import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { getAnalysis, getCapabilities, listEntries } from '../api/client'
 import { METRIC_LABELS, formatDay, formatValue, formatWhen } from '../data/format'
+import { useLanguage } from '../app/LanguageContext'
+
+const METRIC_EN = { heart_rate: 'Heart rate', blood_pressure: 'Blood pressure', temperature: 'Temperature', oxygen_saturation: 'Oxygen saturation', glucose: 'Glucose', sleep: 'Sleep' }
 
 const TRACKED_METRICS = ['heart_rate', 'blood_pressure', 'temperature', 'oxygen_saturation', 'glucose', 'sleep']
 
@@ -16,7 +19,8 @@ const LEVEL_LABELS = {
   Info: 'Informativo',
   Preventivo: 'Cambio observado',
 }
-function buildAlerts(entries, analyses) {
+function buildAlerts(entries, analyses, language) {
+  const en = language === 'en'
   const alerts = []
   const now = Date.now()
   const weekAgo = now - 7 * 86400000
@@ -29,7 +33,7 @@ function buildAlerts(entries, analyses) {
   }
 
   for (const code of TRACKED_METRICS) {
-    const label = METRIC_LABELS[code] || code
+    const label = en ? METRIC_EN[code] : METRIC_LABELS[code] || code
     const recent = entries.filter(
       (e) => e.candidate?.kind === 'measurement' && e.candidate?.metric === code
         && new Date(e.measured_at).getTime() >= weekAgo
@@ -40,17 +44,17 @@ function buildAlerts(entries, analyses) {
         id: `missing-${code}`,
         metric: code,
         title: label,
-        time: 'Ahora',
+        time: en ? 'Now' : 'Ahora',
         level: 'Info',
-        detailTitle: `Sin registros de ${label.toLowerCase()} en los últimos 7 días`,
-        status: 'Pendiente',
+        detailTitle: en ? `No ${label.toLowerCase()} records in the last 7 days` : `Sin registros de ${label.toLowerCase()} en los últimos 7 días`,
+        status: en ? 'Pending' : 'Pendiente',
         metricValue: '0',
-        metricSubtitle: last ? `último registro: ${formatWhen(last.measured_at)}` : 'sin registros en la misión',
-        reason: `Regla visible: se muestra cuando un indicador no tiene registros confirmados en los últimos 7 días. ${last ? `El último registro es del ${formatWhen(last.measured_at)}.` : 'No hay ningún registro de este indicador en la sesión.'}`,
-        actions: [`Registrar ${label.toLowerCase()} con el flujo de revisión y confirmación`],
+        metricSubtitle: last ? (en ? `last record: ${formatWhen(last.measured_at, language)}` : `último registro: ${formatWhen(last.measured_at, language)}`) : (en ? 'no mission records' : 'sin registros en la misión'),
+        reason: en ? `Visible rule: this appears when a metric has no confirmed records in the last 7 days. ${last ? `The last record was on ${formatWhen(last.measured_at, language)}.` : 'There are no records for this metric in this session.'}` : `Regla visible: se muestra cuando un indicador no tiene registros confirmados en los últimos 7 días. ${last ? `El último registro es del ${formatWhen(last.measured_at, language)}.` : 'No hay ningún registro de este indicador en la sesión.'}`,
+        actions: [en ? `Record ${label.toLowerCase()} using the review and confirmation flow` : `Registrar ${label.toLowerCase()} con el flujo de revisión y confirmación`],
         timeline: [
-          { time: 'Ahora', text: 'Aviso generado al revisar los registros' },
-          { time: last ? formatDay(last.measured_at) : '—', text: last ? 'Último registro confirmado' : 'Sin registros' },
+          { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated after reviewing records' : 'Aviso generado al revisar los registros' },
+          { time: last ? formatDay(last.measured_at, language) : '—', text: last ? (en ? 'Last confirmed record' : 'Último registro confirmado') : (en ? 'No records' : 'Sin registros') },
         ],
       })
     }
@@ -63,19 +67,19 @@ function buildAlerts(entries, analyses) {
     alerts.push({
       id: 'sleep-change',
       metric: 'sleep',
-      title: 'Sueño',
-      time: 'Ahora',
+      title: en ? 'Sleep' : 'Sueño',
+      time: en ? 'Now' : 'Ahora',
       level: 'Preventivo',
-      detailTitle: `El último registro de sueño es ${change > 0 ? 'mayor' : 'menor'} que el primero de la ventana`,
-      status: 'Pendiente',
+      detailTitle: en ? `The latest sleep record is ${change > 0 ? 'higher' : 'lower'} than the first in this period` : `El último registro de sueño es ${change > 0 ? 'mayor' : 'menor'} que el primero de la ventana`,
+      status: en ? 'Pending' : 'Pendiente',
       metricValue: `${round1(sleepStats.last.hours)} h`,
-      metricSubtitle: `promedio de la ventana: ${round1(sleepStats.mean_hours)} h`,
-      reason: `Regla visible: con al menos 3 noches registradas, se compara el primer registro (${round1(sleepStats.first.hours)} h) con el último (${round1(sleepStats.last.hours)} h): ${change > 0 ? '+' : ''}${round1(change)} h. Es una descripción de los datos, no una evaluación clínica.`,
-      actions: ['Revisar los registros de sueño en Health Analytics', 'Registrar las horas que falten'],
+      metricSubtitle: `${en ? 'period average' : 'promedio de la ventana'}: ${round1(sleepStats.mean_hours)} h`,
+      reason: en ? `Visible rule: with at least 3 recorded nights, the first (${round1(sleepStats.first.hours)} h) and latest (${round1(sleepStats.last.hours)} h) records are compared: ${change > 0 ? '+' : ''}${round1(change)} h. This describes data; it is not a clinical assessment.` : `Regla visible: con al menos 3 noches registradas, se compara el primer registro (${round1(sleepStats.first.hours)} h) con el último (${round1(sleepStats.last.hours)} h): ${change > 0 ? '+' : ''}${round1(change)} h. Es una descripción de los datos, no una evaluación clínica.`,
+      actions: en ? ['Review sleep records in Health Analytics', 'Record any missing hours'] : ['Revisar los registros de sueño en Health Analytics', 'Registrar las horas que falten'],
       timeline: [
-        { time: 'Ahora', text: 'Aviso generado al revisar los registros' },
-        { time: formatDay(sleepStats.first.date), text: 'Primer registro de la ventana' },
-        { time: formatDay(sleepStats.last.date), text: 'Último registro de la ventana' },
+        { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated after reviewing records' : 'Aviso generado al revisar los registros' },
+        { time: formatDay(sleepStats.first.date, language), text: en ? 'First record in period' : 'Primer registro de la ventana' },
+        { time: formatDay(sleepStats.last.date, language), text: en ? 'Last record in period' : 'Último registro de la ventana' },
       ],
     })
   }
@@ -87,7 +91,7 @@ function buildAlerts(entries, analyses) {
     const stats = series?.stats
     const change = stats?.change_last_minus_first
     if (!change || change.every((d) => d === 0)) continue
-    const label = METRIC_LABELS[code] || code
+    const label = en ? METRIC_EN[code] : METRIC_LABELS[code] || code
     const firstText = stats.first.values.join('/')
     const lastText = stats.last.values.join('/')
     const changeText = change.map((d) => `${d > 0 ? '+' : ''}${round1(d)}`).join('/')
@@ -95,18 +99,18 @@ function buildAlerts(entries, analyses) {
       id: `change-${code}`,
       metric: code,
       title: label,
-      time: 'Ahora',
+      time: en ? 'Now' : 'Ahora',
       level: 'Preventivo',
-      detailTitle: `${label}: cambio entre el primer y el último registro de la ventana`,
-      status: 'Pendiente',
+      detailTitle: en ? `${label}: change between the first and last records in this period` : `${label}: cambio entre el primer y el último registro de la ventana`,
+      status: en ? 'Pending' : 'Pendiente',
       metricValue: `${lastText} ${series.unit}`,
-      metricSubtitle: `promedio: ${stats.mean.map(round1).join('/')} ${series.unit}`,
-      reason: `Regla visible: con al menos 3 registros, se compara el primero (${firstText} ${series.unit}) con el último (${lastText} ${series.unit}): ${changeText} ${series.unit}. Es una descripción de los datos, no una evaluación clínica.`,
-      actions: [`Revisar la evolución de ${label.toLowerCase()} en Health Analytics`],
+      metricSubtitle: `${en ? 'average' : 'promedio'}: ${stats.mean.map(round1).join('/')} ${series.unit}`,
+      reason: en ? `Visible rule: with at least 3 records, the first (${firstText} ${series.unit}) is compared with the latest (${lastText} ${series.unit}): ${changeText} ${series.unit}. This describes data; it is not a clinical assessment.` : `Regla visible: con al menos 3 registros, se compara el primero (${firstText} ${series.unit}) con el último (${lastText} ${series.unit}): ${changeText} ${series.unit}. Es una descripción de los datos, no una evaluación clínica.`,
+      actions: [en ? `Review ${label.toLowerCase()} history in Health Analytics` : `Revisar la evolución de ${label.toLowerCase()} en Health Analytics`],
       timeline: [
-        { time: 'Ahora', text: 'Aviso generado al revisar los registros' },
-        { time: formatDay(stats.first.date), text: 'Primer registro de la ventana' },
-        { time: formatDay(stats.last.date), text: 'Último registro de la ventana' },
+        { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated after reviewing records' : 'Aviso generado al revisar los registros' },
+        { time: formatDay(stats.first.date, language), text: en ? 'First record in period' : 'Primer registro de la ventana' },
+        { time: formatDay(stats.last.date, language), text: en ? 'Last record in period' : 'Último registro de la ventana' },
       ],
     })
   }
@@ -115,6 +119,7 @@ function buildAlerts(entries, analyses) {
 }
 
 function AlertChart({ alert, analyses }) {
+  const { language, tr } = useLanguage()
   let points = []
   let unit = ''
   if (alert.metric === 'sleep') {
@@ -128,7 +133,7 @@ function AlertChart({ alert, analyses }) {
   }
 
   if (points.length < 2) {
-    return <p className="chart-empty">Sin registros suficientes en la ventana para dibujar la tendencia.</p>
+    return <p className="chart-empty">{tr('Sin registros suficientes en la ventana para dibujar la tendencia.', 'Not enough records in this period to draw a trend.')}</p>
   }
 
   const width = 400
@@ -160,9 +165,9 @@ function AlertChart({ alert, analyses }) {
           <circle cx={last[0]} cy={last[1]} r="4.5" fill="#ffffff" stroke="#00b4f0" strokeWidth="2" />
         </svg>
         <div className="chart-x-axis">
-          <span>{formatDay(points[0].t)}</span>
-          <span>{formatDay(points[Math.floor((points.length - 1) / 2)].t)}</span>
-          <span>{formatDay(points.at(-1).t)}</span>
+          <span>{formatDay(points[0].t, language)}</span>
+          <span>{formatDay(points[Math.floor((points.length - 1) / 2)].t, language)}</span>
+          <span>{formatDay(points.at(-1).t, language)}</span>
         </div>
       </div>
       <span className="axis-vertical-hint">Unidad: {unit}</span>
@@ -171,27 +176,44 @@ function AlertChart({ alert, analyses }) {
 }
 
 export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
+  const { language, tr } = useLanguage()
   const [entries, setEntries] = useState([])
   const [analyses, setAnalyses] = useState({})
   const [loaded, setLoaded] = useState(false)
+  const [loadError, setLoadError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
   const [selectedId, setSelectedId] = useState(null)
   const [reviewedIds, setReviewedIds] = useState([])
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      listEntries().catch(() => ({ entries: [] })),
-      ...TRACKED_METRICS.map((code) => getAnalysis(code, 7).catch(() => null)),
-    ]).then(([list, ...results]) => {
+    setLoaded(false)
+    setLoadError(false)
+    const timeout = window.setTimeout(() => {
+      if (!cancelled) { setLoadError(true); setLoaded(true) }
+    }, 10000)
+    listEntries().then((list) => {
       if (cancelled) return
+      window.clearTimeout(timeout)
       setEntries(list.entries || [])
-      setAnalyses(Object.fromEntries(TRACKED_METRICS.map((code, i) => [code, results[i]])))
+      setLoadError(false)
       setLoaded(true)
+    }).catch((error) => {
+      if (cancelled) return
+      window.clearTimeout(timeout)
+      setLoadError(true)
+      setLoaded(true)
+      onNotify?.(error.message)
     })
-    return () => { cancelled = true }
-  }, [])
+    TRACKED_METRICS.forEach((code) => {
+      getAnalysis(code, 7).then((result) => {
+        if (!cancelled) setAnalyses((current) => ({ ...current, [code]: result }))
+      }).catch(() => {})
+    })
+    return () => { cancelled = true; window.clearTimeout(timeout) }
+  }, [retryKey])
 
-  const alerts = useMemo(() => buildAlerts(entries, analyses), [entries, analyses])
+  const alerts = useMemo(() => loaded && !loadError ? buildAlerts(entries, analyses, language) : [], [entries, analyses, loaded, loadError, language])
   const currentAlert = alerts.find((a) => a.id === selectedId) || alerts[0]
   const isReviewed = currentAlert ? reviewedIds.includes(currentAlert.id) : false
   const infoCount = alerts.filter((a) => a.level === 'Info').length
@@ -202,9 +224,9 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
     if (!currentAlert) return
     if (!isReviewed) {
       setReviewedIds([...reviewedIds, currentAlert.id])
-      onNotify?.(`Aviso "${currentAlert.title}" marcado como revisado.`)
+      onNotify?.(tr(`Aviso "${currentAlert.title}" marcado como revisado.`, `Notice "${currentAlert.title}" marked as reviewed.`))
     } else {
-      onNotify?.('Este aviso ya fue revisado.')
+      onNotify?.(tr('Este aviso ya fue revisado.', 'This notice was already reviewed.'))
     }
   }
 
@@ -212,20 +234,20 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
     try {
       const caps = await getCapabilities()
       onNotify?.(caps?.emergency_protocol?.communication_connected
-        ? 'Canal con el equipo médico disponible.'
-        : 'Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.')
+        ? tr('Canal con el equipo médico disponible.', 'Medical team channel available.')
+        : tr('Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.', 'This prototype is not connected to a medical team. Nothing was sent.'))
     } catch {
-      onNotify?.('Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.')
+      onNotify?.(tr('Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.', 'This prototype is not connected to a medical team. Nothing was sent.'))
     }
   }
 
   return (
-    <div className="smart-alerts-page" aria-label="Alertas preventivas">
+    <div className="smart-alerts-page" aria-label={tr('Alertas preventivas', 'Preventive notices')}>
       {/* Header específico de la página */}
       <header className="page-header-pro">
         <div>
-          <h1>Avisos y cambios observados</h1>
-          <p>SMART ALERTS · REGLAS VISIBLES SOBRE TUS REGISTROS</p>
+          <h1>{tr('Avisos y cambios observados', 'Notices and observed changes')}</h1>
+          <p>{tr('AVISOS INTELIGENTES · REGLAS VISIBLES SOBRE TUS REGISTROS', 'SMART ALERTS · VISIBLE RULES FOR YOUR RECORDS')}</p>
         </div>
       </header>
 
@@ -233,34 +255,34 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
       <div className="alerts-summary-cards-row">
         <Panel className="alert-stat-card card--info">
           <div className="stat-card-top">
-            <span className="stat-label">Informativo</span>
-            <span className="stat-note">sin registros recientes</span>
+            <span className="stat-label">{tr('Informativo', 'Informational')}</span>
+            <span className="stat-note">{tr('sin registros recientes', 'no recent records')}</span>
           </div>
           <strong className="stat-number">{loaded ? infoCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--warning">
           <div className="stat-card-top">
-            <span className="stat-label">Cambio observado</span>
-            <span className="stat-note">descriptivo, no clínico</span>
+            <span className="stat-label">{tr('Cambio observado', 'Observed change')}</span>
+            <span className="stat-note">{tr('descriptivo, no clínico', 'descriptive, not clinical')}</span>
           </div>
           <strong className="stat-number">{loaded ? preventiveCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--attention">
           <div className="stat-card-top">
-            <span className="stat-label">Atención</span>
-            <span className="stat-note">sin clasificador clínico</span>
+            <span className="stat-label">{tr('Atención', 'Attention')}</span>
+            <span className="stat-note">{tr('sin clasificador clínico', 'no clinical classifier')}</span>
           </div>
-          <strong className="stat-number stat-number--na">No evaluado</strong>
+          <strong className="stat-number stat-number--na">{tr('No evaluado', 'Not assessed')}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--critical">
           <div className="stat-card-top">
-            <span className="stat-label">Crítico</span>
-            <span className="stat-note">sin clasificador clínico</span>
+            <span className="stat-label">{tr('Crítico', 'Critical')}</span>
+            <span className="stat-note">{tr('sin clasificador clínico', 'no clinical classifier')}</span>
           </div>
-          <strong className="stat-number stat-number--na">No evaluado</strong>
+          <strong className="stat-number stat-number--na">{tr('No evaluado', 'Not assessed')}</strong>
         </Panel>
       </div>
 
@@ -269,17 +291,13 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
         {/* Columna Izquierda: Lista de Alertas */}
         <div className="alerts-list-column">
           <Panel className="alerts-feed-panel">
-            <span className="section-title">ALERTAS</span>
+            <span className="section-title">{tr('ALERTAS', 'NOTICES')}</span>
             <div className="alerts-items-feed">
-              {!loaded && (
-                <SkeletonGroup label="Cargando alertas…">
-                  {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={52} radius="12px" />)}
-                </SkeletonGroup>
+              {loaded && !loadError && alerts.length === 0 && (
+                <p className="chart-empty">{tr('Todos los indicadores tienen registros recientes y sin cambios en la ventana.', 'All metrics have recent records with no changes in this period.')}</p>
               )}
-              {loaded && alerts.length === 0 && (
-                <p className="chart-empty">Todos los indicadores tienen registros recientes y sin cambios en la ventana.</p>
-              )}
-              {loaded && alerts.map((alert) => {
+              {loadError && <p className="chart-empty">{tr('No se pudieron cargar los registros. Inténtalo de nuevo.', 'Could not load records. Try again.')}</p>}
+              {alerts.map((alert) => {
                 const isActive = alert.id === currentAlert?.id
                 const isItemReviewed = reviewedIds.includes(alert.id)
                 return (
@@ -295,20 +313,20 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                       <small>{alert.time}</small>
                     </div>
                     <span className={`alert-badge badge--${alert.level.toLowerCase()}`}>
-                      {isItemReviewed ? 'Revisada' : (LEVEL_LABELS[alert.level] || alert.level)}
+                      {isItemReviewed ? tr('Revisada', 'Reviewed') : language === 'en' ? (alert.level === 'Info' ? 'Informational' : 'Observed change') : (LEVEL_LABELS[alert.level] || alert.level)}
                     </span>
                   </button>
                 )
               })}
             </div>
 
-            <span className="section-title section-title--resolved">RESUELTAS</span>
+            <span className="section-title section-title--resolved">{tr('RESUELTAS', 'REVIEWED')}</span>
             <div className="resolved-items-feed">
-              {resolved.length === 0 && <p className="chart-empty">Ninguna avisada como revisada todavía.</p>}
+              {resolved.length === 0 && <p className="chart-empty">{tr('Ninguna avisada como revisada todavía.', 'No notices marked as reviewed yet.')}</p>}
               {resolved.map((item) => (
                 <div key={item.id} className="resolved-row">
                   <span>{item.title}</span>
-                  <span className="alert-badge badge--resolved">Revisada</span>
+                  <span className="alert-badge badge--resolved">{tr('Revisada', 'Reviewed')}</span>
                 </div>
               ))}
             </div>
@@ -318,26 +336,19 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
         {/* Columna Derecha: Detalle de la Alerta Seleccionada */}
         <div className="alerts-detail-column">
           <Panel className="alert-detail-panel">
-            {!loaded && (
-              <SkeletonGroup label="Cargando detalle del aviso…">
-                <Skeleton w="30%" h={20} radius="12px" />
-                <Skeleton w="70%" h={26} />
-                <Skeleton w="100%" h={140} />
-                <Skeleton w="90%" h={12} />
-                <Skeleton w="75%" h={12} />
-              </SkeletonGroup>
-            )}
-            {loaded && !currentAlert && <p className="chart-empty">No hay avisos que mostrar.</p>}
-            {loaded && currentAlert && (
+            {!currentAlert && !loaded && <p className="chart-empty">{tr('Cargando los registros…', 'Loading records…')}</p>}
+            {!currentAlert && loaded && loadError && <div className="alert-load-state"><p>{tr('No se pudieron consultar los registros. Comprueba que el backend esté funcionando.', 'Could not retrieve records. Check that the backend is running.')}</p><button className="secondary-pill-btn" onClick={() => setRetryKey((value) => value + 1)} type="button">{tr('Reintentar', 'Retry')}</button></div>}
+            {!currentAlert && loaded && !loadError && <p className="chart-empty">{tr('No hay avisos basados en tus registros para mostrar.', 'No record-based notices to show.')}</p>}
+            {currentAlert && (
               <>
                 <div className="detail-header-row">
                   <div>
                     <span className={`alert-badge badge--${currentAlert.level.toLowerCase()}`}>
-                      {isReviewed ? 'Revisada' : (LEVEL_LABELS[currentAlert.level] || currentAlert.level)}
+                      {isReviewed ? tr('Revisada', 'Reviewed') : language === 'en' ? (currentAlert.level === 'Info' ? 'Informational' : 'Observed change') : (LEVEL_LABELS[currentAlert.level] || currentAlert.level)}
                     </span>
                     <h2>{currentAlert.detailTitle}</h2>
                     <p className="detail-meta">
-                      {currentAlert.time} · {isReviewed ? 'Revisada' : currentAlert.status}
+                      {currentAlert.time} · {isReviewed ? tr('Revisada', 'Reviewed') : currentAlert.status}
                     </p>
                   </div>
 
@@ -352,12 +363,12 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                 {/* Dos bloques explicativos: regla visible + qué hacer */}
                 <div className="alert-explanation-grid">
                   <div className="explanation-block">
-                    <h3>POR QUÉ SE GENERÓ</h3>
+                    <h3>{tr('POR QUÉ SE GENERÓ', 'WHY IT WAS GENERATED')}</h3>
                     <p>{currentAlert.reason}</p>
                   </div>
 
                   <div className="explanation-block">
-                    <h3>QUÉ HACER</h3>
+                    <h3>{tr('QUÉ HACER', 'WHAT TO DO')}</h3>
                     <ul className="alert-actions-list">
                       {currentAlert.actions.map((act) => (
                         <li key={act}>
@@ -389,7 +400,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                     onClick={handleMarkReviewed}
                     type="button"
                   >
-                    <span>{isReviewed ? '✓ Aviso revisado' : 'Marcar como revisada'}</span>
+                    <span>{isReviewed ? tr('✓ Aviso revisado', '✓ Notice reviewed') : tr('Marcar como revisada', 'Mark as reviewed')}</span>
                   </button>
 
                   <button
@@ -397,7 +408,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                     onClick={() => onOpenVitals?.()}
                     type="button"
                   >
-                    <span>Registrar datos</span>
+                    <span>{tr('Registrar datos', 'Record data')}</span>
                   </button>
 
                   <button
@@ -405,10 +416,10 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                     onClick={handleContactMedical}
                     type="button"
                   >
-                    <span>Contactar al equipo médico</span>
+                    <span>{tr('Contactar al equipo médico', 'Contact medical team')}</span>
                   </button>
 
-                  <span className="example-rule-hint">Derivada de tus registros, con regla visible</span>
+                  <span className="example-rule-hint">{tr('Derivada de tus registros, con regla visible', 'Based on your records, with a visible rule')}</span>
                 </div>
               </>
             )}

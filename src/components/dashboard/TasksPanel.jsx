@@ -2,8 +2,10 @@ import { Activity, Check, Plus } from 'lucide-react'
 import Panel from '../ui/Panel'
 import { tasks } from '../../data/dashboardData'
 import { localDateKey } from '../../data/format'
+import { useLanguage } from '../../app/LanguageContext'
 
 export default function TasksPanel({ onOpenVitals, latest }) {
+  const { tr } = useLanguage()
   // Marcado solo con datos: el indicador tiene un registro confirmado de hoy.
   const todayKey = localDateKey(new Date().toISOString())
   const recordedToday = (metric) => {
@@ -17,7 +19,7 @@ export default function TasksPanel({ onOpenVitals, latest }) {
     <Panel className="tasks-panel-pro">
       <div className="tasks-panel-pro__header">
         <Activity size={17} className="tasks-icon" />
-        <span className="section-title">PENDIENTES DE HOY</span>
+        <span className="section-title">{tr('PENDIENTES DE HOY', "TODAY'S TO-DO LIST")}</span>
       </div>
 
       <div className="task-list-pro">
@@ -28,13 +30,13 @@ export default function TasksPanel({ onOpenVitals, latest }) {
               key={task.label}
               className={`task-row-pro ${isDone ? 'is-done' : ''}`}
               onClick={isDone ? undefined : onOpenVitals}
-              title={isDone ? 'Registrado hoy' : 'Abrir registro de datos'}
+              title={isDone ? tr('Registrado hoy', 'Recorded today') : tr('Abrir registro de datos', 'Open data entry')}
               type="button"
             >
               <span className={`task-checkbox-circle ${isDone ? 'checked' : ''}`}>
                 {isDone && <Check size={11} strokeWidth={3} />}
               </span>
-              <span className="task-row-text">{task.label}</span>
+              <span className="task-row-text">{({ 'Registrar pulso': tr('Registrar pulso', 'Record heart rate'), 'Registrar presión arterial': tr('Registrar presión arterial', 'Record blood pressure'), 'Registrar horas de sueño': tr('Registrar horas de sueño', 'Record sleep hours'), 'Registrar temperatura': tr('Registrar temperatura', 'Record temperature') })[task.label] || task.label}</span>
             </button>
           )
         })}
@@ -43,7 +45,7 @@ export default function TasksPanel({ onOpenVitals, latest }) {
       <div className="tasks-panel-pro__actions">
         <button className="primary-pill-btn" onClick={onOpenVitals} type="button">
           <Plus size={15} strokeWidth={2.5} />
-          <span>Registrar datos</span>
+          <span>{tr('Registrar datos', 'Record data')}</span>
         </button>
       </div>
 

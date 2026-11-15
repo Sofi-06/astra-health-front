@@ -9,6 +9,29 @@ import {
 } from 'lucide-react'
 import { navItems } from '../../data/dashboardData'
 import { formatWhen } from '../../data/format'
+import { useLanguage } from '../../app/LanguageContext'
+
+const NAV_EN = {
+  Dashboard: 'Dashboard',
+  'Health Monitor': 'Health Monitor',
+  'Mind Tracker': 'Mind Tracker',
+  'Body Explorer': 'Body Explorer',
+  'Space Health Insights': 'Space Health Insights',
+  'Smart Alerts': 'Smart Alerts',
+  'Mission Challenges': 'Missions & Badges',
+  'Health Analytics': 'Health Analytics',
+}
+
+const NAV_ES = {
+  Dashboard: 'Panel principal',
+  'Health Monitor': 'Monitoreo físico',
+  'Mind Tracker': 'Bienestar emocional',
+  'Body Explorer': 'Explorador corporal',
+  'Space Health Insights': 'Salud en el espacio',
+  'Smart Alerts': 'Avisos inteligentes',
+  'Mission Challenges': 'Misiones e insignias',
+  'Health Analytics': 'Análisis de salud',
+}
 
 function Brand() {
   return (
@@ -32,6 +55,7 @@ export default function Sidebar({
 }) {
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const { language, tr } = useLanguage()
 
   const selectItem = (label) => {
     setOpen(false)
@@ -50,26 +74,26 @@ export default function Sidebar({
       onSelect?.(label)
       return
     }
-    onNotify?.(`${label} estará disponible en la próxima misión.`)
+    onNotify?.(tr(`${NAV_ES[label] || label} estará disponible en la próxima misión.`, `${NAV_EN[label] || label} will be available in the next mission.`))
   }
 
   return (
     <>
-      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label="Abrir navegación">
+      <button className="mobile-menu" onClick={() => setOpen(true)} aria-label={tr('Abrir navegación', 'Open navigation')}>
         <Menu size={21} />
       </button>
 
       <button
         className={`sidebar-backdrop ${open ? 'is-visible' : ''}`}
         onClick={() => setOpen(false)}
-        aria-label="Cerrar navegación"
+        aria-label={tr('Cerrar navegación', 'Close navigation')}
       />
 
       <aside id="main-sidebar" className={`sidebar glass-panel ${open ? 'is-open' : ''} ${collapsed ? 'is-collapsed' : ''}`}>
         <button
           className="sidebar__close"
           onClick={() => setOpen(false)}
-          aria-label="Cerrar navegación"
+          aria-label={tr('Cerrar navegación', 'Close navigation')}
           type="button"
         >
           <X size={18} />
@@ -78,10 +102,10 @@ export default function Sidebar({
         <button
           className="sidebar__collapse"
           onClick={() => setCollapsed((current) => !current)}
-          aria-label={collapsed ? 'Expandir navegación' : 'Reducir navegación'}
+          aria-label={collapsed ? tr('Expandir navegación', 'Expand navigation') : tr('Reducir navegación', 'Collapse navigation')}
           aria-expanded={!collapsed}
           aria-controls="main-sidebar"
-          title={collapsed ? 'Expandir menú' : 'Reducir menú'}
+          title={collapsed ? tr('Expandir menú', 'Expand menu') : tr('Reducir menú', 'Collapse menu')}
           type="button"
         >
           <Menu size={18} />
@@ -89,54 +113,53 @@ export default function Sidebar({
 
         <Brand />
 
-        <nav className="sidebar__nav" aria-label="Navegación principal">
+        <nav className="sidebar__nav" aria-label={tr('Navegación principal', 'Main navigation')}>
           {navItems.map(({ label, icon: Icon }) => (
             <button
               key={label}
               className={`nav-item ${activeItem === label ? 'nav-item--active' : ''}`}
               onClick={() => selectItem(label)}
-              title={collapsed ? label : undefined}
-              aria-label={label}
+              title={collapsed ? (language === 'en' ? NAV_EN[label] : NAV_ES[label]) : undefined}
+              aria-label={language === 'en' ? NAV_EN[label] : NAV_ES[label]}
               type="button"
             >
               <Icon size={16} strokeWidth={1.6} />
-              <span>{label}</span>
+              <span>{language === 'en' ? NAV_EN[label] : NAV_ES[label]}</span>
             </button>
           ))}
         </nav>
 
-        <div className="mission-card" title={collapsed ? `Día ${sessionDay} de misión` : undefined}>
+        <div className="mission-card" title={collapsed ? tr(`Día ${sessionDay} de misión`, `Mission day ${sessionDay}`) : undefined}>
           <div className="mission-card__badge">
             <Rocket size={13} className="mission-card__rocket-icon" />
-            <span className="eyebrow">MISSION CONTEXT</span>
+            <span className="eyebrow">{tr('CONTEXTO DE MISIÓN', 'MISSION CONTEXT')}</span>
           </div>
 
-          <strong className="mission-card__day">Día {sessionDay}</strong>
+          <strong className="mission-card__day">{tr('Día', 'Day')} {sessionDay}</strong>
 
           <div className="mission-card__lines">
             <p>
               <Calendar size={12} />
-              <span>Inicio: {sessionStartedAt ? formatWhen(sessionStartedAt) : '14/11/26, 2:08 p.m.'}</span>
+              <span>{tr('Inicio', 'Started')}: {sessionStartedAt ? formatWhen(sessionStartedAt, language) : tr('Sin fecha', 'No date')}</span>
             </p>
             <p>
               <Globe size={12} />
-              <span>Misión orbital · Microgravedad</span>
+              <span>{tr('Misión orbital · Microgravedad', 'Orbital mission · Microgravity')}</span>
             </p>
           </div>
 
-          <p className="mission-card__demo">Ambientación ficticia · solo decorativa</p>
         </div>
 
         {onLogout && (
           <button
             className="sidebar__logout-btn"
             onClick={onLogout}
-            title="Cerrar sesión"
-            aria-label="Cerrar sesión"
+            title={tr('Cerrar sesión', 'Log out')}
+            aria-label={tr('Cerrar sesión', 'Log out')}
             type="button"
           >
             <LogOut size={14} />
-            <span>Cerrar sesión</span>
+            <span>{tr('Cerrar sesión', 'Log out')}</span>
           </button>
         )}
       </aside>

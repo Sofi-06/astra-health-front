@@ -2,6 +2,7 @@ import { Activity, Droplet, Heart, Moon, Thermometer } from 'lucide-react'
 import Panel from '../ui/Panel'
 import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { formatValue, formatWhen } from '../../data/format'
+import { useLanguage } from '../../app/LanguageContext'
 
 const METRIC_CONFIG = {
   heart_rate: { label: 'Pulso', defaultUnit: 'lpm', icon: Heart },
@@ -12,7 +13,8 @@ const METRIC_CONFIG = {
   glucose: { label: 'Glucosa', defaultUnit: 'mg/dL', icon: Droplet },
 }
 
-export default function MetricCard({ code, entry, historySeries, loading = false, onOpenRegister }) {
+export default function MetricCard({ code, entry, historySeries, onOpenRegister }) {
+  const { language, tr } = useLanguage()
   const meta = METRIC_CONFIG[code] || { label: code, defaultUnit: '', icon: Heart }
   const Icon = meta.icon
   const candidate = entry?.candidate
@@ -71,7 +73,7 @@ export default function MetricCard({ code, entry, historySeries, loading = false
     <Panel className={`metric-card-pro ${candidate ? 'is-recorded' : 'is-empty'}`}>
       <div className="metric-card-pro__header">
         <Icon size={15} className="metric-card-pro__icon" />
-        <span className="metric-card-pro__label">{meta.label}</span>
+        <span className="metric-card-pro__label">{language === 'en' ? ({ heart_rate: 'Heart rate', sleep: 'Sleep', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', temperature: 'Temperature', glucose: 'Glucose' }[code] || meta.label) : meta.label}</span>
       </div>
 
       <div className="metric-card-pro__content">
@@ -90,7 +92,7 @@ export default function MetricCard({ code, entry, historySeries, loading = false
                   </span>
                 )}
                 <span className="metric-card-pro__time">
-                  {formatWhen(entry.measured_at)}
+                  {formatWhen(entry.measured_at, language)}
                 </span>
               </div>
             </>
@@ -104,7 +106,7 @@ export default function MetricCard({ code, entry, historySeries, loading = false
                 className="metric-card-pro__add-btn"
                 onClick={onOpenRegister}
               >
-                + Registrar
+                {tr('+ Registrar', '+ Record')}
               </button>
             </>
           )}
