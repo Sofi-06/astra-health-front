@@ -1148,14 +1148,40 @@
 .sleep-ring-value {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
 }
 
 .sleep-ring-value strong {
   font-size: 1.1rem;
   font-weight: 700;
   color: #ffffff;
+}
+
+.sleep-ring-value small {
+  display: block;
+  font-size: 0.52rem;
+  color: #79a4be;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.sleep-note {
+  font-size: 0.68rem;
+  color: #79a4be;
+  line-height: 1.4;
+}
+
+.mission-card__demo {
+  margin-top: 8px;
+  font-size: 0.62rem;
+  color: #79a4be;
+  letter-spacing: 0.04em;
+  border-top: 1px solid rgba(49, 220, 255, 0.14);
+  padding-top: 7px;
 }
 
 .sleep-panel-pro__info {
