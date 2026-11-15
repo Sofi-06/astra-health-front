@@ -1898,3 +1898,158 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* --- Voz y texto libre en el modal de registro --- */
+.modal-textarea {
+  width: 100%;
+  background: rgba(9, 22, 38, 0.55);
+  border: 1px solid rgba(49, 220, 255, 0.22);
+  border-radius: 12px;
+  color: #eaf9ff;
+  padding: 10px 12px;
+  font: inherit;
+  resize: vertical;
+}
+.modal-textarea:focus {
+  outline: 2px solid rgba(49, 220, 255, 0.45);
+  outline-offset: 1px;
+}
+.voice-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.voice-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.voice-button.is-active {
+  border-color: rgba(255, 122, 142, 0.65);
+  color: #ffb9c4;
+}
+.voice-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(190, 226, 245, 0.75);
+}
+.voice-hint--review {
+  border-left: 3px solid rgba(255, 214, 90, 0.6);
+  padding-left: 10px;
+}
+.voice-status {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: #9be7ff;
+}
+.modal-reply--warn {
+  border-left: 3px solid rgba(255, 122, 142, 0.8);
+  padding-left: 10px;
+  color: #ffd6dc;
+}
+.recommendations-box {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(49, 220, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(12, 30, 50, 0.45);
+}
+.recommendations-box p {
+  margin: 0 0 6px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #dff4ff;
+}
+.recommendations-box small {
+  font-size: 11.5px;
+  color: rgba(190, 226, 245, 0.65);
+}
+.indicator-option--free {
+  grid-column: 1 / -1;
+}
+.education-box {
+  margin: 12px 0;
+}
+.education-box h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7fd4f2;
+}
+.education-box p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.education-box small {
+  font-size: 11.5px;
+  color: rgba(190, 226, 245, 0.65);
+}
+
+/* --- Estados vacíos honestos --- */
+.chart-empty {
+  padding: 18px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(190, 226, 245, 0.72);
+  text-align: center;
+}
+.heatmap-cell.cell--empty {
+  background: rgba(120, 150, 180, 0.14);
+  border: 1px dashed rgba(160, 190, 220, 0.25);
+}
+.chip-square.square--empty {
+  background: rgba(120, 150, 180, 0.2);
+  border: 1px dashed rgba(160, 190, 220, 0.4);
+}
+.system-row-note {
+  display: block;
+  font-size: 10.5px;
+  color: rgba(190, 226, 245, 0.55);
+}
+.hm-vital-card__when {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(190, 226, 245, 0.6);
+}
+.hm-record-copy {
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(220, 240, 252, 0.85);
+}
+.hm-record-hint {
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: rgba(190, 226, 245, 0.6);
+}
+.stat-note {
+  font-size: 10.5px;
+  color: rgba(190, 226, 245, 0.55);
+}
+.study-title {
+  display: block;
+  font-size: 13px;
+  color: #eaf9ff;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.study-meta {
+  display: block;
+  font-size: 11px;
+  color: rgba(190, 226, 245, 0.6);
+}
+.study-link {
+  text-decoration: none;
+}
+.insights-scope-note {
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(190, 226, 245, 0.6);
+}
