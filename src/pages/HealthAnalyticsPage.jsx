@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Download, FileText } from 'lucide-react'
 import Panel from '../components/ui/Panel'
-import { exportData, getAnalysis, getCapabilities, getHistory, listEntries } from '../api/client'
-import { formatDay, formatValue, localDateKey } from '../data/format'
+import { getAnalysis, getHistory, listEntries } from '../api/client'
+import { formatDay, formatValue, formatWhen, localDateKey, METRIC_LABELS } from '../data/format'
 
 const TIME_FILTERS = [
   { label: '24 h', days: 1 },
@@ -129,12 +130,141 @@ function MetricChartCard({ meta, historyData, analysis }) {
   )
 }
 
+function HealthReportView({ activeRange, days, entries, onChangeRange, onBack }) {
+  const report = useMemo(() => {
+    const now = Date.now()
+    const cutoff = days >= 3650 ? Number.NEGATIVE_INFINITY : now - days * 86400000
+    const included = entries
+      .filter((entry) => new Date(entry.measured_at).getTime() >= cutoff)
+      .filter((entry) => ['measurement', 'symptom'].includes(entry.candidate?.kind))
+      .sort((a, b) => new Date(b.measured_at) - new Date(a.measured_at))
+    const physical = included.filter((entry) => entry.candidate.kind === 'measurement')
+    const wellbeing = included.filter((entry) => entry.candidate.kind === 'symptom')
+    const recordedDays = new Set(included.map((entry) => localDateKey(entry.measured_at)))
+    let totalDays = days
+    if (days >= 3650) {
+      const oldest = included.at(-1)?.measured_at
+      totalDays = oldest
+        ? Math.max(1, Math.floor((now - new Date(oldest).getTime()) / 86400000) + 1)
+        : 0
+    }
+    return { physical, wellbeing, recordedDays: recordedDays.size, totalDays, total: included.length }
+  }, [days, entries])
+
+  return (
+    <div className="health-report-screen" aria-label="Resumen de registros de salud">
+      <header className="report-screen-header">
+        <button className="report-back-button" onClick={onBack} type="button">
+          <ArrowLeft size={17} />
+          <span>Volver al historial</span>
+        </button>
+        <button className="secondary-pill-btn report-download-button" onClick={() => window.print()} type="button">
+          <Download size={16} />
+          <span>Guardar como PDF</span>
+        </button>
+      </header>
+
+      <div className="report-title-block">
+        <div className="report-title-icon"><FileText size={23} /></div>
+        <div>
+          <span className="section-title">INFORME PERSONAL</span>
+          <h1>Resumen de registros</h1>
+          <p>Información confirmada por la persona. Generado el {formatWhen(new Date().toISOString())}.</p>
+        </div>
+      </div>
+
+      <div className="time-filters-row report-period-filters" aria-label="Periodo del informe">
+        {TIME_FILTERS.map((filter) => (
+          <button
+            key={filter.label}
+            className={`time-filter-pill ${activeRange === filter.label ? 'is-active' : ''}`}
+            onClick={() => onChangeRange(filter.label)}
+            type="button"
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
+      <Panel className="report-coverage-panel">
+        <div>
+          <span>Periodo seleccionado</span>
+          <strong>{activeRange}</strong>
+        </div>
+        <div>
+          <span>Días con registros</span>
+          <strong>{report.recordedDays} de {report.totalDays}</strong>
+        </div>
+        <div>
+          <span>Datos incluidos</span>
+          <strong>{report.total}</strong>
+        </div>
+        <p>
+          {report.recordedDays === report.totalDays && report.totalDays > 0
+            ? 'Hay información registrada para todos los días del periodo.'
+            : `Solo se muestran los ${report.recordedDays} días con información. Los días faltantes no se completan ni se estiman.`}
+        </p>
+      </Panel>
+
+      <div className="report-sections-grid">
+        <Panel className="report-records-panel">
+          <div className="report-section-heading">
+            <span className="section-title">INDICADORES FÍSICOS</span>
+            <small>{report.physical.length} registros</small>
+          </div>
+          {report.physical.length ? (
+            <div className="report-record-list">
+              {report.physical.map((entry) => (
+                <article className="report-record-row" key={entry.id}>
+                  <div>
+                    <strong>{METRIC_LABELS[entry.candidate.metric] || entry.candidate.metric}</strong>
+                    <time dateTime={entry.measured_at}>{formatWhen(entry.measured_at)}</time>
+                  </div>
+                  <span>{formatValue(entry.candidate)} {entry.candidate.unit}</span>
+                </article>
+              ))}
+            </div>
+          ) : <p className="report-empty-state">No hay indicadores físicos registrados en este periodo.</p>}
+        </Panel>
+
+        <Panel className="report-records-panel">
+          <div className="report-section-heading">
+            <span className="section-title">CÓMO DIJISTE SENTIRTE</span>
+            <small>{report.wellbeing.length} registros</small>
+          </div>
+          {report.wellbeing.length ? (
+            <div className="report-record-list">
+              {report.wellbeing.map((entry) => (
+                <article className="report-record-row report-feeling-row" key={entry.id}>
+                  <p>{entry.candidate.original_text}</p>
+                  <time dateTime={entry.measured_at}>{formatWhen(entry.measured_at)}</time>
+                </article>
+              ))}
+            </div>
+          ) : <p className="report-empty-state">No hay registros sobre cómo te sentiste en este periodo.</p>}
+        </Panel>
+      </div>
+
+      <Panel className="report-limits-panel">
+        <strong>Alcance de este resumen</strong>
+        <ul>
+          <li>No incluye el diario emocional.</li>
+          <li>No completa ni inventa días sin registros.</li>
+          <li>No realiza diagnósticos ni evaluaciones clínicas.</li>
+          <li>No se envía automáticamente a ninguna persona o institución.</li>
+        </ul>
+      </Panel>
+    </div>
+  )
+}
+
 export default function HealthAnalyticsPage({ onNotify }) {
   const [activeRange, setActiveRange] = useState('7 días')
   const [data, setData] = useState({}) // code -> { history, analysis }
   const [heatmapHistories, setHeatmapHistories] = useState({})
   const [entries, setEntries] = useState([])
   const [busyReport, setBusyReport] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
 
   const days = TIME_FILTERS.find((f) => f.label === activeRange)?.days ?? 7
 
@@ -190,15 +320,9 @@ export default function HealthAnalyticsPage({ onNotify }) {
   const handleGenerateReport = async () => {
     setBusyReport(true)
     try {
-      const report = await exportData()
-      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `astra-health-export-${new Date().toISOString().slice(0, 10)}.json`
-      link.click()
-      URL.revokeObjectURL(url)
-      onNotify?.('Informe JSON descargado: registros confirmados, fuentes y límites del prototipo.')
+      const list = await listEntries()
+      setEntries(list.entries || [])
+      setReportOpen(true)
     } catch (error) {
       onNotify?.(error.message)
     } finally {
@@ -206,16 +330,16 @@ export default function HealthAnalyticsPage({ onNotify }) {
     }
   }
 
-  const handleShareMedical = async () => {
-    try {
-      const caps = await getCapabilities()
-      const connected = caps?.emergency_protocol?.communication_connected
-      onNotify?.(connected
-        ? 'Canal con el equipo médico disponible.'
-        : 'Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.')
-    } catch {
-      onNotify?.('Este prototipo no tiene comunicación con un equipo médico conectada. Nada se envió.')
-    }
+  if (reportOpen) {
+    return (
+      <HealthReportView
+        activeRange={activeRange}
+        days={days}
+        entries={entries}
+        onChangeRange={setActiveRange}
+        onBack={() => setReportOpen(false)}
+      />
+    )
   }
 
   return (
@@ -295,30 +419,27 @@ export default function HealthAnalyticsPage({ onNotify }) {
             </div>
           </Panel>
 
-          {/* Panel 2: INFORME SEMANAL */}
+          {/* Panel 2: vista previa del informe */}
           <Panel className="weekly-report-panel">
             <span className="section-title">INFORME</span>
             <ul className="report-bullet-list">
               <li>
                 <span className="bullet-cyan" />
-                <span>Registros confirmados de la sesión</span>
+                <span>Vista previa antes de descargar</span>
               </li>
               <li>
                 <span className="bullet-cyan" />
-                <span>Fuentes y límites del prototipo</span>
+                <span>Solo datos confirmados del periodo</span>
               </li>
               <li>
                 <span className="bullet-cyan" />
-                <span>Formato JSON descargable</span>
+                <span>Sin diagnóstico ni envío automático</span>
               </li>
             </ul>
 
             <div className="report-buttons-group">
               <button className="primary-pill-btn report-btn" onClick={handleGenerateReport} disabled={busyReport} type="button">
-                <span>{busyReport ? 'Generando…' : 'Generar informe'}</span>
-              </button>
-              <button className="secondary-pill-btn report-btn" onClick={handleShareMedical} type="button">
-                <span>Compartir con equipo médico</span>
+                <span>{busyReport ? 'Preparando…' : 'Ver informe'}</span>
               </button>
             </div>
           </Panel>
