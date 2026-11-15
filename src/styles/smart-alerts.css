@@ -60,6 +60,12 @@
   margin-top: 4px;
 }
 
+.stat-number--na {
+  font-size: 0.95rem;
+  color: #9db8c9;
+  font-weight: 600;
+}
+
 /* Colores de las 4 tarjetas */
 .card--info .stat-action-btn {
   border: 1px solid rgba(49, 220, 255, 0.45);
