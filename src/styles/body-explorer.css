@@ -1,7 +1,8 @@
 .body-explorer {
   width: calc(100% - 26px);
-  display: grid;
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 2px;
   padding-bottom: 8px;
 }
@@ -16,39 +17,41 @@
 .body-main-grid {
   display: grid;
   grid-template-columns: 240px minmax(390px, 1fr) 315px;
-  min-height: 460px;
-  height: auto;
+  align-items: stretch;
   gap: 14px;
 }
 
 .body-systems-card {
   position: relative;
   z-index: 5;
-  height: fit-content;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
+  padding: 16px 16px 14px;
 }
 
 .body-systems-card nav {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin-top: 8px;
+  justify-content: space-between;
+  flex: 1;
+  margin-top: 10px;
+  gap: 6px;
 }
 
 .body-systems-card nav button {
-  min-height: 38px;
+  flex: 1;
+  min-height: 42px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 10px;
+  gap: 12px;
+  padding: 0 12px;
   color: #b9d0df;
   border: 1px solid transparent;
-  border-radius: 11px;
+  border-radius: 12px;
   background: transparent;
   cursor: pointer;
-  font-size: .81rem;
+  font-size: .84rem;
   text-align: left;
   transition: 160ms ease;
 }
@@ -72,8 +75,8 @@
 
 .body-model-stage {
   position: relative;
-  min-height: 460px;
-  height: 460px;
+  min-height: 480px;
+  height: 100%;
   overflow: visible;
   display: flex;
   align-items: center;
@@ -241,11 +244,11 @@
 .body-detail-card {
   position: relative;
   z-index: 5;
-  height: fit-content;
-  align-self: start;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
+  justify-content: space-between;
+  padding: 16px 18px 14px;
 }
 
 .body-detail-top {
@@ -254,28 +257,28 @@
 }
 
 .body-detail-card h2 {
-  margin: 2px 0 4px;
-  font-size: 1.3rem;
+  margin: 3px 0 6px;
+  font-size: 1.35rem;
 }
 
 .body-status-chip {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
-  min-height: 20px;
-  padding: 0 9px;
+  min-height: 22px;
+  padding: 0 10px;
   color: #f2d572;
   border: 1px solid rgba(240, 208, 79, .62);
   border-radius: 20px;
-  font-size: .59rem;
+  font-size: .6rem;
 }
 
 .body-detail-chart {
   display: block;
   width: 100%;
-  height: 96px;
-  margin-top: 10px;
-  margin-bottom: 4px;
+  height: 105px;
+  margin-top: 14px;
+  margin-bottom: 6px;
   overflow: visible;
 }
 
@@ -292,14 +295,14 @@
 .body-detail-sections {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   margin-top: 8px;
 }
 
 .body-detail-block h3 {
-  margin: 0 0 3px;
+  margin: 0 0 4px;
   color: #8de3ff;
-  font-size: .63rem;
+  font-size: .66rem;
   letter-spacing: .2em;
   font-weight: 700;
 }
@@ -307,13 +310,13 @@
 .body-detail-block p {
   margin: 0;
   color: #c3d5e1;
-  font-size: .71rem;
-  line-height: 1.4;
+  font-size: .73rem;
+  line-height: 1.45;
 }
 
 .body-detail-block ul {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -321,17 +324,17 @@
 
 .body-detail-block li {
   position: relative;
-  padding-left: 15px;
+  padding-left: 16px;
   color: #bad0dd;
-  font-size: .7rem;
-  line-height: 1.35;
+  font-size: .71rem;
+  line-height: 1.38;
 }
 
 .body-detail-block li::before {
   content: '';
   position: absolute;
   top: 5px;
-  left: 2px;
+  left: 3px;
   width: 5px;
   height: 5px;
   border-radius: 50%;
