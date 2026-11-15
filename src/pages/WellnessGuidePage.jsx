@@ -96,6 +96,7 @@ function IndicatorGuide({ item, sources }) {
       <div className="guide-attention">
         <h4><CircleAlert size={15} /> Cuándo podría requerir atención</h4>
         <p>{item.attention}</p>
+        <SourceChips ids={item.attention_source_ids} sources={sources} />
       </div>
       {item.actions?.length > 0 && (
         <div className="guide-indicator-actions">
