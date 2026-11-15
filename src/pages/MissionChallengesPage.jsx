@@ -125,26 +125,12 @@ export default function MissionChallengesPage({ onNotify }) {
           </div>
         </div>
 
-        <div className="weekly-metrics-grid">
-          {!weekly && (
-            <SkeletonGroup label="Cargando progreso semanal…" className="weekly-skeleton">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} style={{ display: 'grid', gap: 8 }}>
-                  <Skeleton w="70%" h={12} />
-                  <Skeleton w="100%" h={8} radius="6px" />
-                </div>
-              ))}
-            </SkeletonGroup>
-          )}
-          {weeklyMetrics.map(({ label, value, target }) => (
-            <div className="weekly-metric-item" key={label}>
-              <div className="metric-header-row">
-                <span>{label}</span>
-                <strong>{value}/{target}</strong>
-              </div>
-              <div className="metric-track">
-                <div className="metric-bar-fill" style={{ width: `${Math.min(100, (value / target) * 100)}%` }} />
-              </div>
+        <p className="mission-helper">{tr('Es opcional y se renueva cada semana. No exige diario ni valores específicos de salud.', 'Optional and renewed weekly. No journal or specific health values required.')}</p>
+        <div className="weekly-metrics-grid mission-conditions-grid">
+          {(mission?.conditions || []).map((condition) => (
+            <div className={`weekly-metric-item mission-condition ${condition.complete ? 'is-complete' : ''}`} key={condition.code}>
+              <div className="metric-header-row"><span>{language === 'en' ? (condition.code === 'check_in' ? 'Complete a check-in' : 'Take a voluntary break') : condition.label}</span><strong>{condition.complete ? tr('Listo', 'Done') : tr('Pendiente', 'Pending')}</strong></div>
+              <div className="metric-track"><div className="metric-bar-fill" style={{ width: condition.complete ? '100%' : '0%' }} /></div>
             </div>
           ))}
         </div>

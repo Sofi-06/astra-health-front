@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Download, FileText } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { getAnalysis, getCheckIns, getHistory, listEntries } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey, METRIC_LABELS } from '../data/format'
 import { useLanguage } from '../app/LanguageContext'
@@ -46,7 +47,7 @@ function last7Days() {
   return days
 }
 
-function MetricChartCard({ meta, historyData, analysis }) {
+function MetricChartCard({ meta, historyData, analysis, loading = false }) {
   const { language, tr } = useLanguage()
   const series = [...(historyData?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
   const points = series?.points ?? []

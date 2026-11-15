@@ -11,7 +11,7 @@ function seriesOf(historyItem) {
   return series ? { unit: series.unit, points: series.points } : { unit: '', points: [] }
 }
 
-export default function TrendsPanel({ history, onOpenVitals }) {
+export default function TrendsPanel({ history, loading = false, onOpenVitals }) {
   const { tr } = useLanguage()
   const [range, setRange] = useState('Últimos 7 días')
   const gradientId = useId().replace(/:/g, '')

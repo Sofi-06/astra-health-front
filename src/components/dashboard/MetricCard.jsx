@@ -13,7 +13,7 @@ const METRIC_CONFIG = {
   glucose: { label: 'Glucosa', defaultUnit: 'mg/dL', icon: Droplet },
 }
 
-export default function MetricCard({ code, entry, historySeries, onOpenRegister }) {
+export default function MetricCard({ code, entry, historySeries, loading = false, onOpenRegister }) {
   const { language, tr } = useLanguage()
   const meta = METRIC_CONFIG[code] || { label: code, defaultUnit: '', icon: Heart }
   const Icon = meta.icon

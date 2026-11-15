@@ -46,7 +46,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
   const greetingTimer = useRef(null)
   const typingTimer = useRef(null)
   const greetingRun = useRef(0)
-  const { latest, entries, history, sleep, reload } = useHealthData()
+  const { latest, entries, history, sleep, loading, reload } = useHealthData()
   const sessionStartedAt = session?.created_at
   const sessionDay = sessionStartedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))

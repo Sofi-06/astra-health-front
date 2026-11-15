@@ -5,7 +5,7 @@ import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { loadSyntheticSleep } from '../../api/client'
 import { useLanguage } from '../../app/LanguageContext'
 
-export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpenVitals }) {
+export default function SleepAnalysisPanel({ analysis, loading = false, onReload, onNotify, onOpenVitals }) {
   const { tr } = useLanguage()
   const [busy, setBusy] = useState(false)
 

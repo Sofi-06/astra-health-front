@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import Panel from '../components/ui/Panel'
-import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
 import { formatDay, formatValue, formatWhen, localDateKey } from '../data/format'
 import { useLanguage } from '../app/LanguageContext'
@@ -86,9 +85,6 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
   const [entriesError, setEntriesError] = useState(false)
   const [entriesLoading, setEntriesLoading] = useState(true)
   const [studies, setStudies] = useState([])
-  const [entryCount, setEntryCount] = useState(null)
-  const [analysesLoaded, setAnalysesLoaded] = useState(false)
-  const [studiesLoaded, setStudiesLoaded] = useState(false)
   const [selectedCode, setSelectedCode] = useState('sleep')
   const [range, setRange] = useState(7)
   const [analysis, setAnalysis] = useState(null)
@@ -96,18 +92,10 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.all(NODES.map(({ code }) => getAnalysis(code, 7).catch(() => null))).then((results) => {
-      if (cancelled) return
-      setAnalyses(Object.fromEntries(NODES.map(({ code }, i) => [code, results[i]])))
-      setAnalysesLoaded(true)
-    })
-    listResearchStudies()
-      .then((data) => { if (!cancelled) setStudies(data?.studies ?? []) })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setStudiesLoaded(true) })
-    listEntries()
-      .then((data) => { if (!cancelled) setEntryCount(data?.count ?? 0) })
-      .catch(() => {})
+    listEntries().then((data) => { if (!cancelled) setEntries(data?.entries || []) })
+      .catch((error) => { if (!cancelled) { setEntriesError(true); onNotify?.(error.message) } })
+      .finally(() => { if (!cancelled) setEntriesLoading(false) })
+    listResearchStudies().then((data) => { if (!cancelled) setStudies(data?.studies || []) }).catch(() => {})
     return () => { cancelled = true }
   }, [])
 
@@ -146,161 +134,14 @@ export default function SpaceHealthInsightsPage({ onNotify }) {
     finally { setBusyExport(false) }
   }
 
-  return (
-    <div className="space-insights-page" aria-label="El cerebro de ASTRA">
-      {/* Header específico de la página */}
-      <header className="page-header-pro">
-        <div>
-          <h1>El cerebro de ASTRA</h1>
-          <p>SPACE HEALTH INSIGHTS · MISSION CONTEXT</p>
-        </div>
-      </header>
-
-      {/* Tarjeta Superior: Resumen de los últimos 7 días con datos reales */}
-      <Panel className="insights-pattern-card">
-        <span className="insights-kicker">
-          SPACE HEALTH INSIGHTS · TUS REGISTROS DE LOS ÚLTIMOS 7 DÍAS
-        </span>
-
-        {/* Constelación del resumen */}
-        <div className="pattern-constellation">
-          <svg className="constellation-lines-svg" viewBox="0 0 700 240" preserveAspectRatio="none">
-            <line x1="350" y1="120" x2="170" y2="40" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="540" y2="40" stroke="rgba(255, 122, 142, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="640" y2="120" stroke="rgba(192, 132, 252, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="350" y2="205" stroke="rgba(255, 214, 90, 0.55)" strokeWidth="1.5" strokeDasharray="4 3" />
-            <line x1="350" y1="120" x2="70" y2="120" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
-          </svg>
-
-          {/* Nodo central */}
-          <div className="pattern-center-node">
-            <div className="center-node-pulse" />
-            <strong>RESUMEN</strong>
-            <small>últimos 7 días</small>
-          </div>
-
-          {NODES.map(({ code, title, className, arrowClass }) => {
-            const { value, change } = nodeData(code, analyses[code])
-            return (
-              <div key={code} className={`pattern-satellite-node ${className}`}>
-                <span className="node-title">{title}</span>
-                {analysesLoaded ? (
-                  <div className={`node-value ${change != null && change !== 0 ? arrowClass : ''}`}>
-                    {change != null && change !== 0 && (change > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-                    <span>{value}</span>
-                  </div>
-                ) : <Skeleton w={54} h={16} />}
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Fila de metadatos: solo datos reales de la sesión o del prototipo */}
-        <div className="insights-mission-meta-row">
-          <div>
-            <span>TIPO DE MISIÓN</span>
-            <strong>Orbital</strong>
-          </div>
-          <div>
-            <span>DÍA DE MISIÓN</span>
-            <strong>{sessionDay}</strong>
-          </div>
-          <div>
-            <span>REGISTROS</span>
-            {entryCount == null ? <Skeleton w={32} h={16} /> : <strong>{entryCount}</strong>}
-          </div>
-          <div>
-            <span>ALMACENAMIENTO</span>
-            <strong>SQLite local</strong>
-          </div>
-          <div>
-            <span>CANAL MÉDICO</span>
-            <strong>No conectado</strong>
-          </div>
-        </div>
-      </Panel>
-
-      {/* Fila Inferior: 3 Paneles */}
-      <div className="insights-bottom-grid">
-        {/* Panel 1: SUEÑO (HORAS) con registros reales */}
-        <Panel className="insights-chart-panel">
-          <span className="section-title">SUEÑO (HORAS)</span>
-          {analysesLoaded ? <SleepCurve analysis={sleep} /> : (
-            <SkeletonGroup label="Cargando curva de sueño…">
-              <Skeleton w="100%" h={140} />
-              <Skeleton w="60%" h={11} />
-            </SkeletonGroup>
-          )}
-        </Panel>
-
-        {/* Panel 2: ORIENTACIÓN con fuente y límites explícitos */}
-        <Panel className="insights-actions-panel">
-          <span className="section-title">ORIENTACIÓN Y LÍMITES</span>
-          {!analysesLoaded && (
-            <SkeletonGroup label="Cargando orientación…">
-              <Skeleton w="40%" h={14} />
-              <Skeleton w="100%" h={12} />
-              <Skeleton w="90%" h={12} />
-              <Skeleton w="95%" h={12} />
-            </SkeletonGroup>
-          )}
-          {education && (
-            <div className="education-box">
-              <h3>Fuente general de la NASA</h3>
-              <p>{education.text}</p>
-              <small>{education.scope}</small>
-            </div>
-          )}
-          {cannotConclude.length > 0 && (
-            <>
-              <h3>El análisis no determina</h3>
-              <ul className="recommendations-list">
-                {cannotConclude.map((item) => (
-                  <li key={item}>
-                    <span className="rec-bullet" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
-
-          <button className="primary-pill-btn export-report-btn" onClick={handleExport} disabled={busyExport} type="button">
-            <span>{busyExport ? 'Generando…' : 'Exportar informe'}</span>
-          </button>
-        </Panel>
-
-        {/* Panel 3: INVESTIGACIÓN NASA OSDR real */}
-        <Panel className="insights-hazards-panel">
-          <span className="section-title">INVESTIGACIÓN NASA · OSDR</span>
-          <div className="hazards-list">
-            {!studiesLoaded && (
-              <SkeletonGroup label="Cargando estudios de NASA OSDR…">
-                {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} radius="10px" />)}
-              </SkeletonGroup>
-            )}
-            {studiesLoaded && studies.length === 0 && <p className="chart-empty">No hay estudios en la copia local.</p>}
-            {studies.map((study) => (
-              <div className="hazard-row" key={study.accession}>
-                <div className="hazard-name">
-                  <span className="study-title" title={study.title}>{study.title}</span>
-                  <small className="study-meta">
-                    Copia local del {study.retrieved_at ? formatDay(study.retrieved_at) : '—'}
-                    {typeof study.file_count_total === 'number' ? ` · ${study.file_count_total} archivos` : ''}
-                    {study.stale ? ' · desactualizada' : ''}
-                  </small>
-                </div>
-                {study.api_url ? (
-                  <a className="status-badge badge--stable study-link" href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a>
-                ) : (
-                  <span className="status-badge badge--stable">{study.accession}</span>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="insights-scope-note">Investigación pública de la NASA, separada de tus registros personales. No es un protocolo clínico.</p>
-        </Panel>
-      </div>
-    </div>
-  )
+  return <div className="space-insights-page" aria-label={tr('Salud en el espacio', 'Space Health Insights')}>
+    <header className="shi-header"><div><h1>{tr('Salud en el', 'Space Health')} <span>{tr('espacio', 'Insights')}</span></h1><p>{tr('Resumen de tus registros · no es una evaluación médica', 'Summary of your records · not a medical evaluation')}</p></div><div className="shi-range" role="group" aria-label={tr('Período', 'Period')}>{[7, 14, 30].map((daysCount) => <button key={daysCount} type="button" className={range === daysCount ? 'is-active' : ''} onClick={() => setRange(daysCount)} aria-pressed={range === daysCount}>{daysCount} {tr('días', 'days')}</button>)}</div></header>
+    <div className="shi-guidance"><span>{tr('Cada tarjeta muestra tu último dato registrado dentro del período. Toca una tarjeta o una pestaña para cambiar la gráfica.', 'Each card shows your latest record within the period. Tap a card or tab to change the chart.')}</span><small>{tr('REGISTROS CONFIRMADOS', 'CONFIRMED RECORDS')}</small></div>
+    <div className="shi-metrics">{METRICS.map((metric) => {
+      const entry = latestByMetric.get(metric.code)
+      return <button key={metric.code} className={`shi-metric ${selectedCode === metric.code ? 'is-active' : ''}`} style={{ '--shi-accent': metric.color }} type="button" onClick={() => setSelectedCode(metric.code)} aria-pressed={selectedCode === metric.code}><span className="shi-metric-label"><i />{language === 'en' ? METRIC_EN[metric.code] : metric.label}</span><strong>{entry ? <>{formatValue(entry.candidate)} <small>{entry.candidate.unit}</small></> : '—'}</strong><span className="shi-metric-foot">{entriesError ? tr('No se pudieron cargar los registros', 'Could not load records') : entry ? `${tr('Registrado', 'Recorded')} ${formatWhen(entry.measured_at, language)}` : entriesLoading ? tr('Cargando…', 'Loading…') : tr('Sin registros en este período', 'No records in this period')}</span></button>
+    })}</div>
+    <Panel className="shi-chart-panel"><div className="shi-chart-top"><div className="shi-tabs" role="group" aria-label={tr('Indicador de la gráfica', 'Chart metric')}>{METRICS.map((metric) => <button type="button" key={metric.code} className={selectedCode === metric.code ? 'is-active' : ''} onClick={() => setSelectedCode(metric.code)} aria-pressed={selectedCode === metric.code}>{language === 'en' ? METRIC_EN[metric.code] : metric.label}</button>)}</div><small>{tr('Un dato = un punto · sin línea de tendencia inventada', 'One record = one point · no invented trend line')}</small></div>{entriesError ? <p className="shi-empty-plot">{tr('No se pudieron cargar tus registros. Comprueba la conexión con el backend.', 'Could not load your records. Check the backend connection.')}</p> : <InsightChart entries={visibleEntries} metric={selectedMetric} range={range} />}</Panel>
+    <div className="shi-bottom-grid"><Panel className="shi-info-panel"><h2>{tr('◆ SOBRE ESTE TEMA EN EL ESPACIO', '◆ ABOUT THIS TOPIC IN SPACE')}</h2>{analysis?.education ? <><p>{analysis.education.text}</p><small>{analysis.education.scope}</small></> : <p>{tr(`La información educativa para ${selectedMetric.label.toLowerCase()} no está disponible en este momento.`, `Educational information about ${METRIC_EN[selectedMetric.code].toLowerCase()} is unavailable right now.`)}</p>}{analysis?.cannot_conclude?.length > 0 && <p className="shi-limit">{tr(`Este resumen no determina ${analysis.cannot_conclude.join(', ').toLowerCase()}.`, 'This summary does not provide a clinical conclusion.')}</p>}<p className="shi-scope">{tr('Información general y educativa. No interpreta tus registros ni es una recomendación para ti.', 'General educational information. It does not interpret your records or make a personal recommendation.')}</p><button type="button" className="shi-export" onClick={handleExport} disabled={busyExport}>{busyExport ? tr('Descargando…', 'Downloading…') : tr('Descargar mis datos JSON →', 'Download my data as JSON →')}</button></Panel><Panel className="shi-research-panel"><h2>{tr('◆ EXPLORAR INVESTIGACIÓN NASA · OSDR', '◆ EXPLORE NASA RESEARCH · OSDR')}</h2>{studies.length ? studies.slice(0, 3).map((study) => <div className="shi-study" key={study.accession}><span><strong>{study.title}</strong><small>{tr('Copia local del', 'Local copy from')} {study.retrieved_at ? formatDay(study.retrieved_at, language) : '—'}{study.stale ? tr(' · desactualizada', ' · outdated') : ''}</small></span>{study.api_url ? <a href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a> : <em>{study.accession}</em>}</div>) : <p>{tr('No hay estudios en la copia local.', 'No studies in the local copy.')}</p>}<p className="shi-scope">{tr('Investigación pública, separada de tus registros personales. No es un protocolo clínico.', 'Public research, separate from your personal records. Not a clinical protocol.')}</p></Panel></div>
+  </div>
 }

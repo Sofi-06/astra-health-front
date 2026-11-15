@@ -68,6 +68,7 @@ function HeartbeatGraph() {
 }
 
 function VitalCard({ label, entry, fallbackUnit, loading }) {
+  const { language, tr } = useLanguage()
   const candidate = entry?.candidate
   if (loading) {
     return (
@@ -95,6 +96,7 @@ function VitalCard({ label, entry, fallbackUnit, loading }) {
 }
 
 function TrendChart({ title, data, dates, unit, color, loading }) {
+  const { tr } = useLanguage()
   const gradientId = useId().replace(/:/g, '')
   const width = 520
   const height = 170

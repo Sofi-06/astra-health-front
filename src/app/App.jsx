@@ -40,19 +40,28 @@ export default function App() {
 
   return (
     <LanguageProvider>
-      {!checkingSession && (isAuthenticated
-        ? <DashboardPage
-            onNotify={notify}
-            session={session}
-            entryGreeting={entryGreeting}
-            onLogout={logout}
-            onUserUpdated={(user) => setSession((current) => ({ ...current, user }))}
-          />
-        : <LoginPage onLogin={(data, mode) => {
-            setSession(data)
-            setEntryGreeting({ id: Date.now(), mode })
-            setIsAuthenticated(true)
-          }} />)}
+      {checkingSession ? (
+        <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#030d1e', color: '#7dd3fc', fontFamily: 'inherit' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <span className="toast__pulse" style={{ width: 28, height: 28 }} />
+            <small style={{ letterSpacing: '0.18em', fontWeight: 600 }}>ASTRA HEALTH</small>
+          </div>
+        </div>
+      ) : isAuthenticated ? (
+        <DashboardPage
+          onNotify={notify}
+          session={session}
+          entryGreeting={entryGreeting}
+          onLogout={logout}
+          onUserUpdated={(user) => setSession((current) => ({ ...current, user }))}
+        />
+      ) : (
+        <LoginPage onLogin={(data, mode) => {
+          setSession(data)
+          setEntryGreeting({ id: Date.now(), mode })
+          setIsAuthenticated(true)
+        }} />
+      )}
       <div className={`toast ${notice ? 'toast--visible' : ''}`} role="status" aria-live="polite">
         <span className="toast__pulse" />
         {notice}
