@@ -20,6 +20,7 @@ const NAV_EN = {
   'Smart Alerts': 'Smart Alerts',
   'Mission Challenges': 'Missions & Badges',
   'Health Analytics': 'Health Analytics',
+  'Wellness Guide': 'Wellness Guide',
 }
 
 const NAV_ES = {
@@ -31,6 +32,7 @@ const NAV_ES = {
   'Smart Alerts': 'Avisos inteligentes',
   'Mission Challenges': 'Misiones e insignias',
   'Health Analytics': 'Análisis de salud',
+  'Wellness Guide': 'Guía de bienestar',
 }
 
 function Brand() {
