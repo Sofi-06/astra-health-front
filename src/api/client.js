@@ -71,3 +71,34 @@ export const loadSyntheticSleep = () => request('synthetic/sleep', { method: 'PO
 export const sendMessage = (text) => request('messages', { method: 'POST', body: { text } })
 export const confirmPending = (payload) => request('confirmations', { method: 'POST', body: { confirmed: true, ...payload } })
 export const discardPending = () => request('pending', { method: 'DELETE' })
+export const getAnalysis = (metric, days = 7) =>
+  request(`analysis/${metric}?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
+export const loadSyntheticMetric = (metric) => request(`synthetic/${metric}`, { method: 'POST' })
+export const getCapabilities = () => request('capabilities')
+export const getSafety = () => request('safety')
+export const listResearchStudies = () => request('research/studies')
+export const exportData = () => request('export')
+
+// Envía una nota de voz al backend, que la reenvía a un proveedor externo de
+// transcripción (OpenAI o Groq) SOLO si el servidor tiene clave configurada.
+// Si no la tiene, responde status "no_credentials" y el texto nunca sale.
+export const transcribeAudio = async (blob) => {
+  let response
+  try {
+    response = await fetch('/api/v1/transcribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': (blob.type || 'audio/webm').split(';')[0],
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: blob,
+    })
+  } catch {
+    throw new ApiError('No hay conexión con el backend.', 0)
+  }
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new ApiError(data?.detail || data?.message || 'No se pudo transcribir el audio.', response.status)
+  }
+  return data
+}
