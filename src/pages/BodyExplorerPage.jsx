@@ -211,7 +211,7 @@ function ExplorerModel({ selected, onSelect }) {
   // El modelo es una sola escena: las zonas invisibles viven en este mismo grupo,
   // por lo que mantienen su posición al rotar o acercar la cámara.
   return (
-    <group ref={group} scale={0.96} position={[0.08, -0.36, 0]}>
+    <group ref={group} scale={1.08} position={[0.08, -0.42, 0]}>
       <primitive object={model} />
       {bodyHitZones.map((zone, index) => (
         <BodyHitZone
@@ -353,45 +353,34 @@ export default function BodyExplorerPage({ onNotify }) {
 
         <BodyModel selected={selected} onSelect={chooseSystem} latest={latest} />
 
-        <aside className="body-detail-column" aria-label={tr('Detalle del sistema seleccionado', 'Selected system detail')}>
-          <Panel className="body-detail-card">
-            <div className="body-detail-header">
-              <div>
-                <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
-                <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
-              </div>
-              {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={105} h={22} radius="14px" />}
-            </div>
+        <Panel className="body-detail-card">
+          <div className="body-detail-top">
+            <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
+            <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
+            {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={120} h={22} radius="14px" />}
             {detailLoading ? (
               <SkeletonGroup label={tr('Cargando evolución del sistema…', 'Loading system evolution…')}>
-                <Skeleton w="100%" h={75} />
+                <Skeleton w="100%" h={80} />
               </SkeletonGroup>
             ) : (
               <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
             )}
-          </Panel>
-
-          <div className="body-parts-cards">
-            <Panel className="body-part-card">
-              <span className="body-part-kicker">{tr('EN EL ESPACIO', 'IN SPACE')}</span>
-              <p className="body-part-desc">{language === 'en' ? SYSTEM_EN[detail.name]?.description : detail.description}</p>
-            </Panel>
-
-            <Panel className="body-part-card">
-              <span className="body-part-kicker">{tr('QUÉ SE REGISTRA', 'WHAT IS RECORDED')}</span>
-              <ul className="body-part-list">
-                {detail.records.map((record) => <li key={record}>{record}</li>)}
-              </ul>
-            </Panel>
-
-            <Panel className="body-part-card">
-              <span className="body-part-kicker">{tr('ACCIONES PREVENTIVAS', 'PREVENTIVE ACTIONS')}</span>
-              <ul className="body-part-list">
-                <li>{language === 'en' ? SYSTEM_EN[detail.name]?.action : detail.action}</li>
-              </ul>
-            </Panel>
           </div>
-        </aside>
+          <div className="body-detail-sections">
+            <div className="body-detail-block">
+              <h3>{tr('EN EL ESPACIO', 'IN SPACE')}</h3>
+              <p>{language === 'en' ? SYSTEM_EN[detail.name]?.description : detail.description}</p>
+            </div>
+            <div className="body-detail-block">
+              <h3>{tr('QUÉ SE REGISTRA', 'WHAT IS RECORDED')}</h3>
+              <ul>{detail.records.map((record) => <li key={record}>{record}</li>)}</ul>
+            </div>
+            <div className="body-detail-block">
+              <h3>{tr('ACCIONES PREVENTIVAS', 'PREVENTIVE ACTIONS')}</h3>
+              <ul><li>{language === 'en' ? SYSTEM_EN[detail.name]?.action : detail.action}</li></ul>
+            </div>
+          </div>
+        </Panel>
       </div>
 
       <Panel className="body-knowledge-card">
