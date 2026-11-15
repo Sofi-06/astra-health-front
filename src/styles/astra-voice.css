@@ -1,0 +1,193 @@
+/* Conversación de voz de Astra: botón flotante + panel. */
+.astra-voice {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.astra-voice__fab {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-strong);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.astra-voice__fab:hover {
+  color: var(--cyan-bright);
+  transform: translateY(-2px);
+}
+
+.astra-voice__fab.is-on {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 4px rgba(49, 220, 255, 0.12), var(--shadow);
+}
+
+.astra-voice--active .astra-voice__fab {
+  animation: astra-voice-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes astra-voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(49, 220, 255, 0.25), var(--shadow); }
+  50% { box-shadow: 0 0 0 9px rgba(49, 220, 255, 0), var(--shadow); }
+}
+
+.astra-voice__panel {
+  width: min(340px, calc(100vw - 44px));
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+}
+
+.astra-voice__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.astra-voice__head strong {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.astra-voice__icon-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.astra-voice__icon-btn:hover {
+  color: var(--text);
+  background: var(--panel-highlight);
+}
+
+.astra-voice__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cyan-bright);
+  margin: 0 0 4px;
+}
+
+.astra-voice__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: none;
+}
+
+.astra-voice__status--wake .astra-voice__dot,
+.astra-voice__status--listening .astra-voice__dot,
+.astra-voice__status--awaiting_origin .astra-voice__dot,
+.astra-voice__status--awaiting_confirm .astra-voice__dot {
+  background: var(--good);
+  animation: astra-voice-blink 1.4s ease-in-out infinite;
+}
+
+.astra-voice__status--speaking .astra-voice__dot,
+.astra-voice__status--greeting .astra-voice__dot,
+.astra-voice__status--thinking .astra-voice__dot {
+  background: var(--cyan);
+}
+
+.astra-voice__status--error .astra-voice__dot,
+.astra-voice__status--unsupported .astra-voice__dot {
+  background: var(--danger);
+}
+
+@keyframes astra-voice-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.astra-voice__detail {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.astra-voice__exchange {
+  background: var(--panel-highlight);
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.astra-voice__exchange p {
+  margin: 0 0 4px;
+  font-size: 12.5px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.astra-voice__exchange p:last-child {
+  margin-bottom: 0;
+}
+
+.astra-voice__exchange span {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.astra-voice__pending {
+  font-size: 12px;
+  color: var(--warning);
+  margin: 0 0 8px;
+}
+
+.astra-voice__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.astra-voice__main,
+.astra-voice__ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 7px 11px;
+}
+
+.astra-voice__ctrl--off {
+  color: var(--danger);
+}
+
+.astra-voice__hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .astra-voice {
+    right: 14px;
+    bottom: 14px;
+  }
+}
