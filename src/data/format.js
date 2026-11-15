@@ -1,6 +1,6 @@
 export const METRIC_LABELS = {
   heart_rate: 'Pulso', temperature: 'Temperatura', blood_pressure: 'Presión arterial',
-  oxygen_saturation: 'Saturación', glucose: 'Glucosa', sleep: 'Sueño declarado',
+  oxygen_saturation: 'Saturación', glucose: 'Glucosa', sleep: 'Sueño declarado', muscle_mass: 'Músculos',
 }
 
 export function formatValue(candidate) {

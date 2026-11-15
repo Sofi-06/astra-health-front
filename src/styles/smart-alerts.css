@@ -155,6 +155,9 @@
   background: #ffd25a;
 }
 
+.item--atencion .item-bar-indicator { background: #fb923c; }
+.item--critico .item-bar-indicator { background: #f87171; }
+
 .item--info .item-bar-indicator {
   background: #38bdf8;
 }
@@ -192,6 +195,18 @@
   border: 1px solid rgba(255, 214, 90, 0.6);
   color: #ffd25a;
   background: rgba(120, 85, 20, 0.28);
+}
+
+.badge--atencion {
+  border: 1px solid rgba(251, 146, 60, 0.6);
+  color: #fb923c;
+  background: rgba(124, 58, 10, 0.3);
+}
+
+.badge--critico {
+  border: 1px solid rgba(248, 113, 113, 0.65);
+  color: #f87171;
+  background: rgba(127, 29, 29, 0.32);
 }
 
 .badge--info {

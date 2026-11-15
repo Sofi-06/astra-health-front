@@ -1,34 +1,47 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, useGLTF } from '@react-three/drei'
 import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
-import { Activity, Bone, Brain, CircleDot, Heart, Plus, Radiation, Waves } from 'lucide-react'
+import { Activity, Brain, CircleDot, Heart, Plus, UserRound, Waves } from 'lucide-react'
 import * as THREE from 'three'
 import Panel from '../components/ui/Panel'
 import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
-import { listEntries, getHistory } from '../api/client'
-import { formatDay, formatValue, formatWhen } from '../data/format'
+import { listEntries, recordWellnessAction } from '../api/client'
+import { formatValue, formatWhen, localDateKey } from '../data/format'
 import { useLanguage } from '../app/LanguageContext'
 
+const SpaceHealthInsightsPage = lazy(() => import('./SpaceHealthInsightsPage'))
+const WHOLE_BODY = 'Todo el cuerpo'
+
 const SYSTEM_EN = {
+  'Todo el cuerpo': { name: 'Whole body', description: 'Everything you have recorded across all systems, plus space health information and your report.', action: 'Review your records and download the report' },
   Cerebro: { name: 'Brain', description: 'Sleep and isolation may affect concentration.', action: 'Scheduled cognitive routine' },
   Corazón: { name: 'Heart', description: 'Microgravity changes how the heart pumps and adapts.', action: 'Scheduled cardiovascular exercise' },
   Pulmones: { name: 'Lungs', description: 'Breathing capacity is monitored throughout the mission.', action: 'Daily guided breathing' },
-  Huesos: { name: 'Bones', description: 'Microgravity accelerates the loss of bone mineral density.', action: 'Resistance exercise and supplementation' },
   Músculos: { name: 'Muscles', description: 'Muscle mass needs regular stimulation in microgravity.', action: 'Resistance exercise' },
   Digestivo: { name: 'Digestive', description: 'Nutrition and digestion are monitored during the mission.', action: 'Mission nutrition plan' },
   Inmunológico: { name: 'Immune', description: 'Space-related stress may change the immune response.', action: 'Regular medical monitoring' },
 }
-const BODY_METRIC_EN = { sleep: 'Reported sleep', heart_rate: 'Heart rate', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', glucose: 'Glucose', temperature: 'Temperature' }
+const BODY_METRIC_EN = { muscle_mass: 'Muscle weight', sleep: 'Reported sleep', heart_rate: 'Heart rate', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', glucose: 'Glucose', temperature: 'Temperature' }
 
 // Cada sistema muestra solo los indicadores que el backend registra de verdad.
 // Sin datos reales se dice "Sin registros"; no se simulan estados clínicos.
 const SYSTEM_DEFS = [
+  {
+    name: WHOLE_BODY,
+    icon: UserRound,
+    description: 'Todo lo que has registrado en todos los sistemas, más la información de salud en el espacio y tu informe.',
+    metrics: [
+      { code: 'heart_rate', label: 'Frecuencia cardíaca' }, { code: 'blood_pressure', label: 'Presión arterial' },
+      { code: 'oxygen_saturation', label: 'Saturación de oxígeno' }, { code: 'temperature', label: 'Temperatura' },
+      { code: 'glucose', label: 'Glucosa' }, { code: 'sleep', label: 'Sueño declarado' }, { code: 'muscle_mass', label: 'Peso de músculos' },
+    ],
+    action: 'Revisa tus registros y descarga el informe',
+  },
   { name: 'Cerebro', icon: Brain, description: 'El sueño y el aislamiento pueden afectar la concentración.', metrics: [{ code: 'sleep', label: 'Sueño declarado' }], action: 'Rutina cognitiva programada' },
   { name: 'Corazón', icon: Heart, description: 'La microgravedad cambia la forma en que el corazón bombea y se adapta.', metrics: [{ code: 'heart_rate', label: 'Frecuencia cardíaca' }, { code: 'blood_pressure', label: 'Presión arterial' }], action: 'Ejercicio cardiovascular programado' },
   { name: 'Pulmones', icon: Waves, description: 'La capacidad respiratoria se monitorea durante toda la misión.', metrics: [{ code: 'oxygen_saturation', label: 'Saturación de oxígeno' }], action: 'Respiración guiada diaria' },
-  { name: 'Huesos', icon: Bone, description: 'La microgravedad acelera la pérdida de densidad mineral ósea.', metrics: [], action: 'Resistencia y suplementación' },
-  { name: 'Músculos', icon: Activity, description: 'La masa muscular requiere estímulo constante en microgravedad.', metrics: [], action: 'Ejercicio de resistencia' },
+  { name: 'Músculos', icon: Activity, description: 'La masa muscular requiere estímulo constante en microgravedad.', metrics: [{ code: 'muscle_mass', label: 'Peso de músculos' }], action: 'Ejercicio de resistencia' },
   { name: 'Digestivo', icon: CircleDot, description: 'La nutrición y digestión se controlan durante la misión.', metrics: [{ code: 'glucose', label: 'Glucosa' }], action: 'Plan nutricional de misión' },
   { name: 'Inmunológico', icon: Plus, description: 'El estrés espacial puede modificar la respuesta inmunológica.', metrics: [{ code: 'temperature', label: 'Temperatura' }], action: 'Control médico periódico' },
 ]
@@ -58,8 +71,6 @@ const bodyHitZones = [
   { id: 'digestive', system: 'Digestivo', color: '#ffb45e', shape: 'box', position: [0, 3.62, 0.42], markerPosition: [0, 3.7, 0.7], scale: [0.82, 0.78, 0.5] },
   { id: 'muscle-arm-left', system: 'Músculos', color: '#48e5ed', shape: 'box', position: [-0.88, 4.18, 0.18], rotation: [0, 0, -0.82], scale: [0.34, 1.25, 0.34] },
   { id: 'muscle-arm-right', system: 'Músculos', color: '#48e5ed', shape: 'box', position: [0.84, 3.72, 0.12], markerPosition: [0.82, 4.14, 0.58], rotation: [0, 0, -0.08], scale: [0.34, 1.45, 0.34] },
-  { id: 'bone-leg-left', system: 'Huesos', color: '#f6dc68', shape: 'box', position: [-0.34, 1.55, 0.02], rotation: [0, 0, -0.04], scale: [0.38, 2.25, 0.42] },
-  { id: 'bone-leg-right', system: 'Huesos', color: '#f6dc68', shape: 'box', position: [0.34, 1.55, 0.02], markerPosition: [0.34, 1.55, 0.38], rotation: [0, 0, 0.04], scale: [0.38, 2.25, 0.42] },
 ]
 
 function TouchBeacon({ active, color, hovered, position, phase }) {
@@ -258,93 +269,101 @@ function BodyModel({ selected, onSelect, latest }) {
   )
 }
 
-function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
+const TREND_COLORS = ['#50e6ff', '#ffb45e']
+const TREND_COLOR_BY_METRIC = { muscle_mass: '#48e5ed', heart_rate: '#ff9d83', blood_pressure: '#ffb45e', sleep: '#b98cff', oxygen_saturation: '#56a8ff', glucose: '#ffb45e', temperature: '#68f5a7' }
+
+// Seguimiento de 24 horas de un indicador: cada lectura en su hora real.
+function DetailTrend24({ code, label, entries, end }) {
   const { language, tr } = useLanguage()
-  if (points.length < 2) {
-    return <p className="chart-empty">{tr('Sin registros suficientes del indicador principal de este sistema para dibujar su evolución.', 'Not enough records for this system’s main metric to draw a trend.')}</p>
+  const start = end - 24 * 3600000
+  const rows = entries
+    .filter((e) => e.candidate?.kind === 'measurement' && e.candidate.metric === code && new Date(e.measured_at).getTime() >= start)
+    .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+  const unit = rows.at(-1)?.candidate.unit || ''
+  const sameUnit = rows.filter((e) => e.candidate.unit === unit)
+  const lineCount = code === 'blood_pressure' ? 2 : 1
+  const color = TREND_COLOR_BY_METRIC[code] || TREND_COLORS[0]
+  const title = `${label}${unit ? ` (${unit})` : ''}`
+
+  if (sameUnit.length === 0) {
+    return <div className="body-trend"><h4 className="body-trend-title">{title}</h4><p className="chart-empty">{tr('Sin registros en las últimas 24 horas.', 'No records in the last 24 hours.')}</p></div>
   }
-  const values = points.map((p) => p.values[0])
-  let min = Math.min(...values)
-  let max = Math.max(...values)
+
+  const all = sameUnit.flatMap((e) => e.candidate.values.slice(0, lineCount))
+  let min = Math.min(...all)
+  let max = Math.max(...all)
   if (min === max) { min -= 1; max += 1 }
   const left = 27
   const right = 266
-  const top = 14
-  const bottom = 98
-  const coords = values.map((v, i) => [
-    left + (i / (values.length - 1)) * (right - left),
-    top + (1 - (v - min) / (max - min)) * (bottom - top - 20),
-  ])
-  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
-  const area = `${line} L ${coords.at(-1)[0]} ${bottom} L ${coords[0][0]} ${bottom} Z`
-  const last = coords.at(-1)
-  const yLabels = [max, (max + min) / 2, min]
-  const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
+  const top = 10
+  const bottom = 82
+  const x = (t) => left + ((new Date(t).getTime() - start) / (end - start)) * (right - left)
+  const y = (v) => top + (1 - (v - min) / (max - min)) * (bottom - top)
+  const hour = (t) => new Date(t).toLocaleTimeString(language === 'en' ? 'en-US' : 'es-CO', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const ticks = [0, 1, 2, 3, 4].map((i) => start + (i * (end - start)) / 4)
+
   return (
-    <svg className="body-detail-chart" viewBox="0 0 270 125" role="img" aria-label={tr(`Evolución real del sistema (${unit})`, `Real system trend (${unit})`)}>
-      <defs><linearGradient id="bodyDetailFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".38" /><stop offset="1" stopColor={color} stopOpacity=".02" /></linearGradient></defs>
-      {yLabels.map((tick, index) => {
-        const y = top + index * ((bottom - top) / 2)
-        return <g key={index}><line x1={left} x2={right} y1={y} y2={y} className="body-detail-grid" /><text x="1" y={y + 4} className="body-detail-label">{tick.toFixed(1)}</text></g>
-      })}
-      <path d={area} fill="url(#bodyDetailFill)" />
-      <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={last[0]} cy={last[1]} r="8" fill={color} opacity=".25" /><circle cx={last[0]} cy={last[1]} r="4" fill="#fff" stroke={color} strokeWidth="2" />
-      {xLabels.map((i) => <text key={i} x={left + (i / Math.max(1, points.length - 1)) * (right - left)} y="120" textAnchor="middle" className="body-detail-label">{formatDay(points[i].t, language)}</text>)}
-    </svg>
+    <div className="body-trend">
+      <h4 className="body-trend-title">{title} <small>{sameUnit.length} {tr('lecturas · 24 h', 'readings · 24 h')}</small></h4>
+      <svg className="body-detail-chart" viewBox="0 0 270 104" role="img" aria-label={tr(`Seguimiento de 24 horas de ${label}`, `24-hour tracking of ${label}`)}>
+        {[max, (max + min) / 2, min].map((tick, index) => {
+          const gy = top + index * ((bottom - top) / 2)
+          return <g key={index}><line x1={left} x2={right} y1={gy} y2={gy} className="body-detail-grid" /><text x="1" y={gy + 4} className="body-detail-label">{tick.toFixed(1)}</text></g>
+        })}
+        {Array.from({ length: lineCount }, (_, line) => {
+          const pts = sameUnit.filter((e) => e.candidate.values[line] != null).map((e) => [x(e.measured_at), y(e.candidate.values[line])])
+          const path = pts.map(([px, py], i) => `${i ? 'L' : 'M'} ${px.toFixed(1)} ${py.toFixed(1)}`).join(' ')
+          const stroke = line === 0 ? color : '#ffffff'
+          return <g key={line}><path d={path} fill="none" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" opacity={line ? 0.6 : 1} />{pts.map(([px, py], i) => <circle key={i} cx={px} cy={py} r="3.2" fill={stroke} />)}</g>
+        })}
+        {ticks.map((t, i) => <text key={i} x={x(t)} y="100" textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'} className="body-detail-label">{hour(t)}</text>)}
+      </svg>
+      {code === 'blood_pressure' && <small className="body-trend-note">{tr('Línea de color: sistólica · línea blanca: diastólica', 'Colored line: systolic · white line: diastolic')}</small>}
+    </div>
   )
 }
 
-export default function BodyExplorerPage({ onNotify }) {
+export default function BodyExplorerPage({ onNotify, onOpenVitals }) {
   const { language, tr } = useLanguage()
   const [selected, setSelected] = useState('Corazón')
+  const isWhole = selected === WHOLE_BODY
   const [latest, setLatest] = useState({})
   const [entriesLoaded, setEntriesLoaded] = useState(false)
-  const [loadedMetric, setLoadedMetric] = useState(null) // indicador cuyo historial ya se cargó
-  const [detailPoints, setDetailPoints] = useState({ points: [], unit: '' })
+  const [entries, setEntries] = useState([])
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const systems = useMemo(() => buildSystems(latest, language), [latest, language])
-  const detail = systems.find((system) => system.name === selected)
-  const primaryMetric = detail?.metrics?.[0]?.code
-  const detailLoading = !entriesLoaded || (primaryMetric && loadedMetric !== primaryMetric)
+  const detail = systems.find((system) => system.name === selected) || systems[0]
 
   useEffect(() => {
     let cancelled = false
     listEntries().then((data) => {
       if (cancelled) return
+      const list = data.entries || []
       const byMetric = {}
-      for (const entry of data.entries || []) {
+      for (const entry of list) {
         const code = entry.candidate?.metric
         if (entry.candidate?.kind !== 'measurement' || !code) continue
         if (!byMetric[code] || entry.measured_at > byMetric[code].measured_at) byMetric[code] = entry
       }
+      setEntries(list)
       setLatest(byMetric)
+      setNowMs(Date.now())
     }).catch(() => { }).finally(() => { if (!cancelled) setEntriesLoaded(true) })
     return () => { cancelled = true }
   }, [])
 
-  useEffect(() => {
-    const primary = detail?.metrics?.[0]?.code
-    if (!primary) {
-      setDetailPoints({ points: [], unit: '' })
-      return
-    }
-    let cancelled = false
-    getHistory(primary, 30).then((data) => {
-      if (cancelled) return
-      const series = [...(data?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
-      setDetailPoints({ points: series?.points ?? [], unit: series?.unit || '' })
-    }).catch(() => setDetailPoints({ points: [], unit: '' }))
-      .finally(() => { if (!cancelled) setLoadedMetric(primary) })
-    return () => { cancelled = true }
-  }, [detail?.metrics])
-
   const chooseSystem = (name) => {
     setSelected(name)
+    setNowMs(Date.now())
+    if (name === WHOLE_BODY) recordWellnessAction('explore_insights', localDateKey(new Date().toISOString())).catch(() => {})
     onNotify(tr(`Explorando sistema: ${name}.`, `Exploring system: ${SYSTEM_EN[name]?.name || name}.`))
   }
 
   return (
     <section className="body-explorer" aria-label={tr('Explorador del cuerpo humano', 'Human body explorer')}>
+      <div className="body-register-bar">
+        <button className="primary-pill-btn" onClick={onOpenVitals} type="button">{tr('Registrar datos', 'Record data')}</button>
+      </div>
       <div className="body-main-grid">
         <Panel className="body-systems-card">
           <span className="body-kicker">{tr('SISTEMAS', 'SYSTEMS')}</span>
@@ -358,12 +377,18 @@ export default function BodyExplorerPage({ onNotify }) {
             <span className="body-kicker">{tr('DETALLE', 'DETAIL')}</span>
             <h2>{language === 'en' ? SYSTEM_EN[detail.name]?.name : detail.name}</h2>
             {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={120} h={22} radius="14px" />}
-            {detailLoading ? (
-              <SkeletonGroup label={tr('Cargando evolución del sistema…', 'Loading system evolution…')}>
+            {!entriesLoaded ? (
+              <SkeletonGroup label={tr('Cargando seguimiento de 24 horas…', 'Loading 24-hour tracking…')}>
                 <Skeleton w="100%" h={130} />
               </SkeletonGroup>
+            ) : isWhole ? (
+              <p className="chart-empty">{tr('Abajo ves el seguimiento, los sistemas y el informe de todo tu cuerpo.', 'Below you can see tracking, systems and the report for your whole body.')}</p>
+            ) : detail.metrics.length === 0 ? (
+              <p className="chart-empty">{tr('Este sistema no tiene indicadores conectados.', 'This system has no connected metrics.')}</p>
             ) : (
-              <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
+              detail.metrics.map(({ code, label }) => (
+                <DetailTrend24 key={code} code={code} label={language === 'en' ? BODY_METRIC_EN[code] : label} entries={entries} end={nowMs} />
+              ))
             )}
           </div>
           <div className="body-detail-sections">
@@ -383,12 +408,11 @@ export default function BodyExplorerPage({ onNotify }) {
         </Panel>
       </div>
 
-      <Panel className="body-knowledge-card">
-        <div className="body-knowledge-intro"><h2>{tr('Conoce tu cuerpo', 'Know your body')}</h2><p>{tr('Cómo la microgravedad, la radiación y el aislamiento afectan cada sistema.', 'How microgravity, radiation and isolation affect each system.')}</p></div>
-        <button onClick={() => onNotify(tr('Abriendo efectos de la radiación.', 'Opening radiation effects.'))}><Radiation size={19} /><strong>{tr('Radiación', 'Radiation')}</strong><small>{tr('Efectos y seguimiento', 'Effects and monitoring')}</small></button>
-        <button onClick={() => onNotify(tr('Abriendo efectos de la microgravedad.', 'Opening microgravity effects.'))}><span className="body-down-arrow">⬇</span><strong>{tr('Microgravedad', 'Microgravity')}</strong><small>{tr('Hueso, músculo, corazón', 'Bone, muscle, heart')}</small></button>
-        <button onClick={() => onNotify(tr('Abriendo efectos del aislamiento.', 'Opening isolation effects.'))}><CircleDot size={18} /><strong>{tr('Aislamiento', 'Isolation')}</strong><small>{tr('Sueño y ánimo', 'Sleep and mood')}</small></button>
-      </Panel>
+      {isWhole && (
+        <Suspense fallback={<SkeletonGroup label={tr('Cargando vista de todo el cuerpo…', 'Loading whole-body view…')}><Skeleton w="100%" h={260} radius="14px" /></SkeletonGroup>}>
+          <SpaceHealthInsightsPage onNotify={onNotify} />
+        </Suspense>
+      )}
     </section>
   )
 }

@@ -13,7 +13,7 @@ const BADGE_EN = {
   gravity_strength: { name: 'Gravity strength', condition: 'Complete your first weekly mission.' },
   protective_shield: { name: 'Protective shield', condition: 'Set your first personal reminder.' },
   orbital_consistency: { name: 'Orbital consistency', condition: 'Check in on 5 different days; they need not be consecutive.' },
-  integral_explorer: { name: 'Whole-body explorer', condition: 'Explore Body Explorer and Space Health Insights.' },
+  integral_explorer: { name: 'Whole-body explorer', condition: 'Explore Body Explorer, including the whole-body view.' },
 }
 
 const BADGE_META = {
@@ -24,7 +24,7 @@ const BADGE_META = {
   gravity_strength: { icon: 'hex', condition: 'Completar la primera misión semanal.' },
   protective_shield: { icon: 'shield', condition: 'Configurar el primer recordatorio propio.' },
   orbital_consistency: { icon: 'target', condition: 'Hacer check-in en 5 días distintos; no necesitan ser consecutivos.' },
-  integral_explorer: { icon: 'sun', condition: 'Explorar Body Explorer y Space Health Insights.' },
+  integral_explorer: { icon: 'sun', condition: 'Explorar el Explorador corporal, incluida la vista de todo el cuerpo.' },
 }
 
 const BADGE_CATALOG = [

@@ -1,4 +1,4 @@
-import { Activity, Droplet, Heart, Moon, Thermometer } from 'lucide-react'
+import { Activity, Droplet, Dumbbell, Heart, Moon, Thermometer } from 'lucide-react'
 import Panel from '../ui/Panel'
 import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { formatValue, formatWhen } from '../../data/format'
@@ -11,6 +11,7 @@ const METRIC_CONFIG = {
   oxygen_saturation: { label: 'Saturación', defaultUnit: '%', icon: Droplet },
   temperature: { label: 'Temperatura', defaultUnit: '°C', icon: Thermometer },
   glucose: { label: 'Glucosa', defaultUnit: 'mg/dL', icon: Droplet },
+  muscle_mass: { label: 'Músculos', defaultUnit: 'kg', icon: Dumbbell },
 }
 
 export default function MetricCard({ code, entry, historySeries, loading = false, onOpenRegister }) {
@@ -73,7 +74,7 @@ export default function MetricCard({ code, entry, historySeries, loading = false
     <Panel className={`metric-card-pro ${candidate ? 'is-recorded' : 'is-empty'}`}>
       <div className="metric-card-pro__header">
         <Icon size={15} className="metric-card-pro__icon" />
-        <span className="metric-card-pro__label">{language === 'en' ? ({ heart_rate: 'Heart rate', sleep: 'Sleep', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', temperature: 'Temperature', glucose: 'Glucose' }[code] || meta.label) : meta.label}</span>
+        <span className="metric-card-pro__label">{language === 'en' ? ({ heart_rate: 'Heart rate', sleep: 'Sleep', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation', temperature: 'Temperature', glucose: 'Glucose', muscle_mass: 'Muscles' }[code] || meta.label) : meta.label}</span>
       </div>
 
       <div className="metric-card-pro__content">
@@ -146,6 +147,19 @@ export default function MetricCard({ code, entry, historySeries, loading = false
           )}
         </div>
       </div>
+
+      {candidate && entry.recommendation?.text && (
+        <p className={`metric-card-pro__rec ${entry.recommendation.out_of_range ? 'is-warning' : ''}`}>
+          {entry.recommendation.out_of_range && (
+            <strong>
+              {entry.recommendation.severity === 'critical' ? tr('⚠ Fuera de rango · crítico', '⚠ Out of range · critical') : tr('⚠ Fuera de rango', '⚠ Out of range')}
+              {entry.recommendation.reason ? ` — ${entry.recommendation.reason}` : ''}
+              <br />
+            </strong>
+          )}
+          {entry.recommendation.text}
+        </p>
+      )}
     </Panel>
   )
 }

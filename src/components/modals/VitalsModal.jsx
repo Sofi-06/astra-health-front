@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Check,
   Droplet,
+  Dumbbell,
   Gauge,
   HeartPulse,
   Mic,
@@ -23,6 +24,7 @@ const INDICATOR_EN = {
   oxygen_saturation: { label: 'Oxygen saturation', description: 'SpO₂ percentage' },
   glucose: { label: 'Glucose', description: 'Choose the measured unit' },
   sleep: { label: 'Sleep', description: 'Self-reported hours and minutes' },
+  muscle_mass: { label: 'Muscles', description: 'Muscle weight in kg' },
 }
 
 const INDICATORS = [
@@ -32,6 +34,7 @@ const INDICATORS = [
   { code: 'oxygen_saturation', label: 'Saturación', description: 'Porcentaje de SpO₂', unit: '%', icon: Gauge },
   { code: 'glucose', label: 'Glucosa', description: 'Elige la unidad medida', units: ['mg/dL', 'mmol/L'], icon: Droplet },
   { code: 'sleep', label: 'Sueño', description: 'Horas y minutos declarados', unit: 'h', icon: Moon },
+  { code: 'muscle_mass', label: 'Músculos', description: 'Peso en kg', unit: 'kg', icon: Dumbbell },
 ]
 
 const FREE_TEXT = 'free_text'
@@ -89,6 +92,7 @@ function createMessage(metric, draft) {
   const value = requiredNumber(draft.value, 'el valor')
   if (metric === 'heart_rate') return `Pulso ${value} lpm`
   if (metric === 'oxygen_saturation') return `Saturación ${value} %`
+  if (metric === 'muscle_mass') return `Músculos ${value} kg`
   if (metric === 'temperature') {
     if (!draft.unit) throw new Error('Elige °C o °F.')
     return `Temperatura ${value} ${draft.unit}`

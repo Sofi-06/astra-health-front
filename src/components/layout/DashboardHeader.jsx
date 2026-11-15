@@ -2,7 +2,6 @@ import { Bell, LogOut } from 'lucide-react'
 
 const headerCopy = {
   Dashboard: { title: 'Centro de control', subtitle: 'DASHBOARD · ¿CÓMO ESTOY HOY? ¿QUÉ DEBO HACER?' },
-  'Health Monitor': { title: 'Monitoreo físico', subtitle: 'HEALTH MONITOR · SIGNOS VITALES · METABOLISMO · SUEÑO · SÍNTOMAS' },
   'Mind Tracker': { title: 'Bienestar psicológico', subtitle: 'MIND TRACKER · CHECK-IN · DIARIO · EVOLUCIÓN' },
   'Body Explorer': { title: 'Cuerpo humano', subtitle: 'BODY EXPLORER · EXPLORA CADA SISTEMA.' },
 }

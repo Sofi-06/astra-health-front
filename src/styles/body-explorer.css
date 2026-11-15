@@ -686,3 +686,9 @@
     min-height: 500px;
   }
 }
+.body-trend { margin-top: 10px; }
+.body-trend-title { margin: 0 0 4px; color: #cfe9f7; font-size: .74rem; font-weight: 600; letter-spacing: .04em; }
+.body-trend-title small { margin-left: 6px; color: #7ba3bc; font-weight: 400; }
+.body-trend-note { display: block; color: #7ba3bc; font-size: .64rem; }
+
+.body-register-bar { display: flex; justify-content: flex-end; margin-bottom: 10px; }

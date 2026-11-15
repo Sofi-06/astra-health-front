@@ -13,25 +13,19 @@ import { useLanguage } from '../../app/LanguageContext'
 
 const NAV_EN = {
   Dashboard: 'Dashboard',
-  'Health Monitor': 'Health Monitor',
   'Mind Tracker': 'Mind Tracker',
   'Body Explorer': 'Body Explorer',
-  'Space Health Insights': 'Space Health Insights',
   'Smart Alerts': 'Smart Alerts',
   'Mission Challenges': 'Missions & Badges',
-  'Health Analytics': 'Health Analytics',
   'Wellness Guide': 'Wellness Guide',
 }
 
 const NAV_ES = {
   Dashboard: 'Panel principal',
-  'Health Monitor': 'Monitoreo físico',
   'Mind Tracker': 'Bienestar emocional',
   'Body Explorer': 'Explorador corporal',
-  'Space Health Insights': 'Salud en el espacio',
   'Smart Alerts': 'Avisos inteligentes',
   'Mission Challenges': 'Misiones e insignias',
-  'Health Analytics': 'Análisis de salud',
   'Wellness Guide': 'Guía de bienestar',
 }
 
@@ -63,13 +57,10 @@ export default function Sidebar({
     setOpen(false)
     const available = [
       'Dashboard',
-      'Health Monitor',
       'Mind Tracker',
       'Body Explorer',
-      'Space Health Insights',
       'Smart Alerts',
       'Mission Challenges',
-      'Health Analytics',
       'Wellness Guide',
     ]
     if (available.includes(label)) {

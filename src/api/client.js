@@ -81,6 +81,7 @@ export const confirmPending = (payload) => request('confirmations', { method: 'P
 export const discardPending = () => request('pending', { method: 'DELETE' })
 export const getAnalysis = (metric, days = 7) =>
   request(`analysis/${metric}?days=${days}&tz_offset_minutes=${-new Date().getTimezoneOffset()}`)
+export const loadSyntheticAll = () => request('synthetic', { method: 'POST' })
 export const loadSyntheticMetric = (metric) => request(`synthetic/${metric}`, { method: 'POST' })
 export const getCapabilities = () => request('capabilities')
 export const getGuidance = () => request('guidance')

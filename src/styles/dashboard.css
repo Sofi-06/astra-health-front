@@ -984,7 +984,9 @@
 }
 
 .dashboard-tasks-sleep-row .tasks-panel-pro,
-.dashboard-tasks-sleep-row .sleep-panel-pro {
+.dashboard-tasks-sleep-row .sleep-panel-pro,
+.dashboard-tasks-sleep-row .systems-heatmap-panel,
+.dashboard-tasks-sleep-row .comparisons-panel {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -2264,4 +2266,22 @@
   font-size: 11.5px;
   line-height: 1.5;
   color: rgba(190, 226, 245, 0.6);
+}
+
+.metric-card-pro__rec {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #a9c6d8;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.metric-card-pro__rec.is-warning {
+  color: #fed7aa;
+  border-top-color: rgba(251, 146, 60, 0.45);
+}
+
+.metric-card-pro__rec.is-warning strong {
+  color: #fb923c;
 }

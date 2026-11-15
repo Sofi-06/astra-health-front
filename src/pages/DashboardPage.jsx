@@ -3,12 +3,11 @@ import { LogOut, Volume2, VolumeX } from 'lucide-react'
 import Sidebar from '../components/layout/Sidebar'
 import ProfileCard from '../components/dashboard/ProfileCard'
 import MetricCard from '../components/dashboard/MetricCard'
-import TasksPanel from '../components/dashboard/TasksPanel'
-import TrendsPanel from '../components/dashboard/TrendsPanel'
-import SleepAnalysisPanel from '../components/dashboard/SleepAnalysisPanel'
+import SystemsPanel from '../components/dashboard/SystemsPanel'
+import RecordsComparisonPanel from '../components/dashboard/RecordsComparisonPanel'
 import AstraVoicePanel from '../components/voice/AstraVoicePanel'
 import useHealthData from '../hooks/useHealthData'
-import { recordWellnessAction, updateProfileImage } from '../api/client'
+import { loadSyntheticAll, recordWellnessAction, updateProfileImage } from '../api/client'
 import { localDateKey } from '../data/format'
 import LanguageSwitcher from '../components/ui/LanguageSwitcher'
 import PageSkeleton from '../components/ui/PageSkeleton'
@@ -27,18 +26,16 @@ import '../styles/astra-voice.css'
 import '../styles/responsive.css'
 import '../styles/page-skeleton.css'
 
-const HealthMonitorPage = lazy(() => import('./HealthMonitorPage'))
 const MindTrackerPage = lazy(() => import('./MindTrackerPage'))
 const BodyExplorerPage = lazy(() => import('./BodyExplorerPage'))
-const SpaceHealthInsightsPage = lazy(() => import('./SpaceHealthInsightsPage'))
 const SmartAlertsPage = lazy(() => import('./SmartAlertsPage'))
 const MissionChallengesPage = lazy(() => import('./MissionChallengesPage'))
-const HealthAnalyticsPage = lazy(() => import('./HealthAnalyticsPage'))
 const WellnessGuidePage = lazy(() => import('./WellnessGuidePage'))
 const HumanVisualizer = lazy(() => import('../components/dashboard/HumanVisualizer'))
 const VitalsModal = lazy(() => import('../components/modals/VitalsModal'))
 
 const CARD_ORDER = [
+  'muscle_mass',
   'heart_rate',
   'sleep',
   'blood_pressure',
@@ -61,7 +58,7 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
   const greetingTimer = useRef(null)
   const typingTimer = useRef(null)
   const greetingRun = useRef(0)
-  const { latest, entries, history, sleep, loading, reload } = useHealthData()
+  const { latest, entries, history, loading, reload } = useHealthData()
   const sessionStartedAt = session?.created_at
   const sessionDay = sessionStartedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))
@@ -134,17 +131,23 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
 
   const selectPage = (page) => {
     setActivePage(page)
-    const action = page === 'Body Explorer'
-      ? 'explore_body'
-      : page === 'Space Health Insights'
-        ? 'explore_insights'
-        : null
+    const action = page === 'Body Explorer' ? 'explore_body' : null
     if (action) recordWellnessAction(action, localDateKey(new Date().toISOString())).catch(() => {})
   }
 
   const saved = async () => {
     await reload()
     onNotify?.(tr('Registro confirmado y guardado en SQLite.', 'Record confirmed and saved.'))
+  }
+
+  const loadDemoData = async () => {
+    try {
+      await loadSyntheticAll()
+      await reload()
+      onNotify?.(tr('Datos sintéticos de 3 días cargados en todos los indicadores.', '3 days of synthetic data loaded for all metrics.'))
+    } catch (error) {
+      onNotify?.(error.message)
+    }
   }
 
   const voiceSaved = async () => {
@@ -185,21 +188,10 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
           ))}
         </div>
 
-        {/* Fila: Pendientes de hoy + Análisis de sueño */}
+        {/* Fila: Sistemas de los últimos 7 días + comparación de registros */}
         <div className="dashboard-tasks-sleep-row">
-          <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
-          <SleepAnalysisPanel
-            analysis={sleep}
-            loading={loading}
-            onReload={reload}
-            onNotify={onNotify}
-            onOpenVitals={() => setModalOpen(true)}
-          />
-        </div>
-
-        {/* Fila Inferior: Tendencias extendida a ancho completo */}
-        <div className="dashboard-trends-row">
-          <TrendsPanel history={history} loading={loading} onOpenVitals={() => setModalOpen(true)} />
+          <SystemsPanel entries={entries} loading={loading} />
+          <RecordsComparisonPanel entries={entries} loading={loading} onOpenVitals={() => setModalOpen(true)} />
         </div>
       </div>
 
@@ -225,20 +217,13 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
   )
 
   const renderPage = () => {
-    if (activePage === 'Health Monitor') return <HealthMonitorPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} />
     if (activePage === 'Mind Tracker') return <MindTrackerPage onNotify={onNotify} />
-    if (activePage === 'Body Explorer') return <BodyExplorerPage onNotify={onNotify} />
-    if (activePage === 'Space Health Insights') {
-      return <SpaceHealthInsightsPage onNotify={onNotify} sessionDay={sessionDay} />
-    }
+    if (activePage === 'Body Explorer') return <BodyExplorerPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} />
     if (activePage === 'Smart Alerts') {
       return <SmartAlertsPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} />
     }
     if (activePage === 'Mission Challenges') {
       return <MissionChallengesPage onNotify={onNotify} onOpenVitals={() => setModalOpen(true)} sessionDay={sessionDay} />
-    }
-    if (activePage === 'Health Analytics') {
-      return <HealthAnalyticsPage onNotify={onNotify} sessionDay={sessionDay} />
     }
     if (activePage === 'Wellness Guide') return <WellnessGuidePage onNotify={onNotify} />
     return renderDashboard()
@@ -273,6 +258,9 @@ export default function DashboardPage({ onNotify, session, entryGreeting, onLogo
                 strokeLinejoin="round"
               />
             </svg>
+            <button className="top-bar-logout-btn" onClick={loadDemoData} title={tr('Cargar datos sintéticos de 3 días', 'Load 3 days of synthetic data')} type="button">
+              <span>{tr('Datos de prueba (3 días)', 'Demo data (3 days)')}</span>
+            </button>
             {onLogout && (
               <button
                 className="top-bar-logout-btn"

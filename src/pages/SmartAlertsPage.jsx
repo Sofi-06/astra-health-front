@@ -18,7 +18,16 @@ const round1 = (n) => Math.round(n * 10) / 10
 const LEVEL_LABELS = {
   Info: 'Informativo',
   Preventivo: 'Cambio observado',
+  Atencion: 'Fuera de rango',
+  Critico: 'Crítico',
 }
+const LEVEL_LABELS_EN = {
+  Info: 'Informational',
+  Preventivo: 'Observed change',
+  Atencion: 'Out of range',
+  Critico: 'Critical',
+}
+const levelLabel = (level, en) => (en ? LEVEL_LABELS_EN : LEVEL_LABELS)[level] || level
 function buildAlerts(entries, analyses, language) {
   const en = language === 'en'
   const alerts = []
@@ -30,6 +39,34 @@ function buildAlerts(entries, analyses, language) {
     const code = entry.candidate?.metric
     if (entry.candidate?.kind !== 'measurement' || !code) continue
     if (!latestByMetric[code] || entry.measured_at > latestByMetric[code].measured_at) latestByMetric[code] = entry
+  }
+
+  // Último registro de cada indicador con la recomendación guardada: si quedó
+  // fuera de parámetros, se muestra como aviso con esa misma recomendación.
+  for (const code of TRACKED_METRICS) {
+    const entry = latestByMetric[code]
+    const rec = entry?.recommendation
+    if (!rec?.out_of_range) continue
+    const label = en ? METRIC_EN[code] : METRIC_LABELS[code] || code
+    const critical = rec.severity === 'critical'
+    const value = `${formatValue(entry.candidate)} ${entry.candidate.unit}`
+    alerts.unshift({
+      id: `range-${code}`,
+      metric: code,
+      title: label,
+      time: formatWhen(entry.measured_at, language),
+      level: critical ? 'Critico' : 'Atencion',
+      detailTitle: en ? `${label} outside the reference range` : `${label} fuera del rango de referencia`,
+      status: en ? 'Pending' : 'Pendiente',
+      metricValue: value,
+      metricSubtitle: rec.reason || '',
+      reason: en ? `Rule: the latest confirmed ${label.toLowerCase()} record (${value}) is outside the general adult reference range. ${rec.disclaimer || ''}` : `Regla: el último registro confirmado de ${label.toLowerCase()} (${value}) está fuera del rango de referencia general para adultos. ${rec.disclaimer || ''}`,
+      actions: [rec.text, en ? 'Repeat the measurement and record it again' : 'Repite la medición y vuelve a registrarla'],
+      timeline: [
+        { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated from the saved recommendation' : 'Aviso generado desde la recomendación guardada' },
+        { time: formatDay(entry.measured_at, language), text: en ? 'Out-of-range record' : 'Registro fuera de rango' },
+      ],
+    })
   }
 
   for (const code of TRACKED_METRICS) {
@@ -75,7 +112,7 @@ function buildAlerts(entries, analyses, language) {
       metricValue: `${round1(sleepStats.last.hours)} h`,
       metricSubtitle: `${en ? 'period average' : 'promedio de la ventana'}: ${round1(sleepStats.mean_hours)} h`,
       reason: en ? `Visible rule: with at least 3 recorded nights, the first (${round1(sleepStats.first.hours)} h) and latest (${round1(sleepStats.last.hours)} h) records are compared: ${change > 0 ? '+' : ''}${round1(change)} h. This describes data; it is not a clinical assessment.` : `Regla visible: con al menos 3 noches registradas, se compara el primer registro (${round1(sleepStats.first.hours)} h) con el último (${round1(sleepStats.last.hours)} h): ${change > 0 ? '+' : ''}${round1(change)} h. Es una descripción de los datos, no una evaluación clínica.`,
-      actions: en ? ['Review sleep records in Health Analytics', 'Record any missing hours'] : ['Revisar los registros de sueño en Health Analytics', 'Registrar las horas que falten'],
+      actions: en ? ['Review sleep records in Body Explorer', 'Record any missing hours'] : ['Revisar los registros de sueño en Explorador corporal', 'Registrar las horas que falten'],
       timeline: [
         { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated after reviewing records' : 'Aviso generado al revisar los registros' },
         { time: formatDay(sleepStats.first.date, language), text: en ? 'First record in period' : 'Primer registro de la ventana' },
@@ -106,7 +143,7 @@ function buildAlerts(entries, analyses, language) {
       metricValue: `${lastText} ${series.unit}`,
       metricSubtitle: `${en ? 'average' : 'promedio'}: ${stats.mean.map(round1).join('/')} ${series.unit}`,
       reason: en ? `Visible rule: with at least 3 records, the first (${firstText} ${series.unit}) is compared with the latest (${lastText} ${series.unit}): ${changeText} ${series.unit}. This describes data; it is not a clinical assessment.` : `Regla visible: con al menos 3 registros, se compara el primero (${firstText} ${series.unit}) con el último (${lastText} ${series.unit}): ${changeText} ${series.unit}. Es una descripción de los datos, no una evaluación clínica.`,
-      actions: [en ? `Review ${label.toLowerCase()} history in Health Analytics` : `Revisar la evolución de ${label.toLowerCase()} en Health Analytics`],
+      actions: [en ? `Review ${label.toLowerCase()} history in Body Explorer` : `Revisar la evolución de ${label.toLowerCase()} en Explorador corporal`],
       timeline: [
         { time: en ? 'Now' : 'Ahora', text: en ? 'Notice generated after reviewing records' : 'Aviso generado al revisar los registros' },
         { time: formatDay(stats.first.date, language), text: en ? 'First record in period' : 'Primer registro de la ventana' },
@@ -218,6 +255,8 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
   const isReviewed = currentAlert ? reviewedIds.includes(currentAlert.id) : false
   const infoCount = alerts.filter((a) => a.level === 'Info').length
   const preventiveCount = alerts.filter((a) => a.level === 'Preventivo').length
+  const attentionCount = alerts.filter((a) => a.level === 'Atencion').length
+  const criticalCount = alerts.filter((a) => a.level === 'Critico').length
   const resolved = alerts.filter((a) => reviewedIds.includes(a.id))
 
   const handleMarkReviewed = () => {
@@ -272,17 +311,17 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
         <Panel className="alert-stat-card card--attention">
           <div className="stat-card-top">
             <span className="stat-label">{tr('Atención', 'Attention')}</span>
-            <span className="stat-note">{tr('sin clasificador clínico', 'no clinical classifier')}</span>
+            <span className="stat-note">{tr('fuera del rango de referencia', 'outside reference range')}</span>
           </div>
-          <strong className="stat-number stat-number--na">{tr('No evaluado', 'Not assessed')}</strong>
+          <strong className="stat-number">{loaded ? attentionCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--critical">
           <div className="stat-card-top">
             <span className="stat-label">{tr('Crítico', 'Critical')}</span>
-            <span className="stat-note">{tr('sin clasificador clínico', 'no clinical classifier')}</span>
+            <span className="stat-note">{tr('muy lejos del rango', 'far outside range')}</span>
           </div>
-          <strong className="stat-number stat-number--na">{tr('No evaluado', 'Not assessed')}</strong>
+          <strong className="stat-number">{loaded ? criticalCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
       </div>
 
@@ -316,7 +355,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                       <small>{alert.time}</small>
                     </div>
                     <span className={`alert-badge badge--${alert.level.toLowerCase()}`}>
-                      {isItemReviewed ? tr('Revisada', 'Reviewed') : language === 'en' ? (alert.level === 'Info' ? 'Informational' : 'Observed change') : (LEVEL_LABELS[alert.level] || alert.level)}
+                      {isItemReviewed ? tr('Revisada', 'Reviewed') : levelLabel(alert.level, language === 'en')}
                     </span>
                   </button>
                 )
@@ -353,7 +392,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                 <div className="detail-header-row">
                   <div>
                     <span className={`alert-badge badge--${currentAlert.level.toLowerCase()}`}>
-                      {isReviewed ? tr('Revisada', 'Reviewed') : language === 'en' ? (currentAlert.level === 'Info' ? 'Informational' : 'Observed change') : (LEVEL_LABELS[currentAlert.level] || currentAlert.level)}
+                      {isReviewed ? tr('Revisada', 'Reviewed') : levelLabel(currentAlert.level, language === 'en')}
                     </span>
                     <h2>{currentAlert.detailTitle}</h2>
                     <p className="detail-meta">
