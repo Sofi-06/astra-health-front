@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   Calendar,
   Globe,
-  LayoutList,
   LogOut,
   Menu,
   Rocket,
@@ -122,11 +121,9 @@ export default function Sidebar({
               <Globe size={12} />
               <span>Misión orbital · Microgravedad</span>
             </p>
-            <p>
-              <LayoutList size={12} />
-              <span>Enlace con la Tierra estable</span>
-            </p>
           </div>
+
+          <p className="mission-card__demo">Ambientación ficticia · solo decorativa</p>
         </div>
 
         {onLogout && (
