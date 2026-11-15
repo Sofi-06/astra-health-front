@@ -30,7 +30,7 @@ const CARD_ORDER = [
 export default function DashboardPage({ onNotify, session, onLogout, onUserUpdated }) {
   const [activePage, setActivePage] = useState('Dashboard')
   const [modalOpen, setModalOpen] = useState(false)
-  const { latest, entries, history, sleep, reload } = useHealthData()
+  const { latest, entries, history, sleep, loading, reload } = useHealthData()
   const sessionStartedAt = session?.created_at
   const sessionDay = sessionStartedAt
     ? Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 86400000))
@@ -68,6 +68,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
               code={code}
               entry={latest[code]}
               historySeries={history?.[code]?.series?.[0]}
+              loading={loading}
               onOpenRegister={() => setModalOpen(true)}
             />
           ))}
@@ -78,6 +79,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
           <TasksPanel onOpenVitals={() => setModalOpen(true)} latest={latest} />
           <SleepAnalysisPanel
             analysis={sleep}
+            loading={loading}
             onReload={reload}
             onNotify={onNotify}
             onOpenVitals={() => setModalOpen(true)}
@@ -86,7 +88,7 @@ export default function DashboardPage({ onNotify, session, onLogout, onUserUpdat
 
         {/* Fila Inferior: Tendencias extendida a ancho completo */}
         <div className="dashboard-trends-row">
-          <TrendsPanel history={history} onOpenVitals={() => setModalOpen(true)} />
+          <TrendsPanel history={history} loading={loading} onOpenVitals={() => setModalOpen(true)} />
         </div>
       </div>
 

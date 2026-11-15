@@ -1,5 +1,6 @@
 import { Activity, Droplet, Heart, Moon, Thermometer } from 'lucide-react'
 import Panel from '../ui/Panel'
+import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { formatValue, formatWhen } from '../../data/format'
 
 const METRIC_CONFIG = {
@@ -11,7 +12,7 @@ const METRIC_CONFIG = {
   glucose: { label: 'Glucosa', defaultUnit: 'mg/dL', icon: Droplet },
 }
 
-export default function MetricCard({ code, entry, historySeries, onOpenRegister }) {
+export default function MetricCard({ code, entry, historySeries, loading = false, onOpenRegister }) {
   const meta = METRIC_CONFIG[code] || { label: code, defaultUnit: '', icon: Heart }
   const Icon = meta.icon
   const candidate = entry?.candidate
@@ -49,6 +50,21 @@ export default function MetricCard({ code, entry, historySeries, onOpenRegister 
       deltaText = `${pct >= 0 ? '+' : ''}${pct}%`
       isUp = pct >= 0
     }
+  }
+
+  if (loading) {
+    return (
+      <Panel className="metric-card-pro">
+        <div className="metric-card-pro__header">
+          <Icon size={15} className="metric-card-pro__icon" />
+          <span className="metric-card-pro__label">{meta.label}</span>
+        </div>
+        <SkeletonGroup label={`Cargando ${meta.label}…`}>
+          <Skeleton w="55%" h={28} />
+          <Skeleton w="80%" h={12} />
+        </SkeletonGroup>
+      </Panel>
+    )
   }
 
   return (

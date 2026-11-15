@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { BarChart3, ChevronDown } from 'lucide-react'
 import Panel from '../ui/Panel'
+import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 
 function seriesOf(historyItem) {
   const series = [...(historyItem?.series ?? [])].sort(
@@ -9,7 +10,7 @@ function seriesOf(historyItem) {
   return series ? { unit: series.unit, points: series.points } : { unit: '', points: [] }
 }
 
-export default function TrendsPanel({ history, onOpenVitals }) {
+export default function TrendsPanel({ history, loading = false, onOpenVitals }) {
   const [range, setRange] = useState('Últimos 7 días')
   const gradientId = useId().replace(/:/g, '')
 
@@ -62,7 +63,12 @@ export default function TrendsPanel({ history, onOpenVitals }) {
       </div>
 
       <div className="trends-chart-container">
-        {hasData ? (
+        {loading ? (
+          <SkeletonGroup label="Cargando tendencias…" className="trends-skeleton">
+            <Skeleton w="100%" h={90} />
+            <Skeleton w="60%" h={12} />
+          </SkeletonGroup>
+        ) : hasData ? (
           <>
             <div className="trends-axis-y">
               <span>Máx</span>

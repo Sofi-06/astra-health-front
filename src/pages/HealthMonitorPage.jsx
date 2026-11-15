@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react'
 import { Bone, CirclePlus, Heart, Moon, Waves } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import useHealthData from '../hooks/useHealthData'
 import { formatDay, formatValue, formatWhen } from '../data/format'
 
@@ -59,8 +60,19 @@ function HeartbeatGraph() {
   )
 }
 
-function VitalCard({ label, entry, fallbackUnit }) {
+function VitalCard({ label, entry, fallbackUnit, loading }) {
   const candidate = entry?.candidate
+  if (loading) {
+    return (
+      <Panel className="hm-vital-card">
+        <SkeletonGroup label={`Cargando ${label}…`}>
+          <span>{label}</span>
+          <Skeleton w={90} h={26} />
+          <Skeleton w={120} h={11} />
+        </SkeletonGroup>
+      </Panel>
+    )
+  }
   return (
     <Panel className="hm-vital-card">
       <div>
@@ -75,7 +87,7 @@ function VitalCard({ label, entry, fallbackUnit }) {
   )
 }
 
-function TrendChart({ title, data, dates, unit, color }) {
+function TrendChart({ title, data, dates, unit, color, loading }) {
   const gradientId = useId().replace(/:/g, '')
   const width = 520
   const height = 170
@@ -92,6 +104,18 @@ function TrendChart({ title, data, dates, unit, color }) {
     const pad = (hi - lo) * 0.15
     return { min: lo - pad, max: hi + pad }
   }, [data])
+
+  if (loading) {
+    return (
+      <Panel className="hm-trend-card">
+        <span className="hm-card-kicker">{title}</span>
+        <SkeletonGroup label={`Cargando ${title}…`}>
+          <Skeleton w="100%" h={130} />
+          <Skeleton w="55%" h={11} />
+        </SkeletonGroup>
+      </Panel>
+    )
+  }
 
   if (data.length < 2) {
     return (
@@ -169,13 +193,23 @@ export default function HealthMonitorPage({ onNotify, onOpenVitals }) {
       <Panel className="hm-live-card">
         <div className="hm-live-copy">
           <span className="hm-card-kicker">ÚLTIMO PULSO REGISTRADO</span>
-          <div className="hm-live-value">{hr ? formatValue(hr.candidate) : '—'} <small>{hr?.candidate?.unit || 'lpm'}</small></div>
-          <p>{hr ? `Frecuencia cardíaca · registro del ${formatWhen(hr.measured_at)}` : 'Aún no hay registros de pulso confirmados.'}</p>
-          <span className="hm-history-chip">
-            {hrDiff != null
-              ? `${hrDiff > 0 ? '+' : ''}${hrDiff} ${hr.candidate.unit} vs. su promedio registrado`
-              : 'Sin promedio todavía'}
-          </span>
+          {loading ? (
+            <SkeletonGroup label="Cargando último pulso…">
+              <Skeleton w={150} h={44} />
+              <Skeleton w={240} h={12} />
+              <Skeleton w={200} h={22} radius="14px" />
+            </SkeletonGroup>
+          ) : (
+            <>
+              <div className="hm-live-value">{hr ? formatValue(hr.candidate) : '—'} <small>{hr?.candidate?.unit || 'lpm'}</small></div>
+              <p>{hr ? `Frecuencia cardíaca · registro del ${formatWhen(hr.measured_at)}` : 'Aún no hay registros de pulso confirmados.'}</p>
+              <span className="hm-history-chip">
+                {hrDiff != null
+                  ? `${hrDiff > 0 ? '+' : ''}${hrDiff} ${hr.candidate.unit} vs. su promedio registrado`
+                  : 'Sin promedio todavía'}
+              </span>
+            </>
+          )}
         </div>
         <HeartbeatGraph />
       </Panel>
@@ -189,12 +223,12 @@ export default function HealthMonitorPage({ onNotify, onOpenVitals }) {
       <div className="hm-detail-grid">
         <div className="hm-vitals-list">
           {VITAL_CARDS.map(({ code, label, fallbackUnit }) => (
-            <VitalCard key={code} label={label} entry={latest?.[code]} fallbackUnit={fallbackUnit} />
+            <VitalCard key={code} label={label} entry={latest?.[code]} fallbackUnit={fallbackUnit} loading={loading} />
           ))}
         </div>
         <div className="hm-charts-column">
-          <TrendChart title="SUEÑO (HORAS)" data={sleepSeries.values} dates={sleepSeries.dates} unit={sleepSeries.unit || 'h'} color="#7fa8ff" />
-          <TrendChart title="FRECUENCIA CARDÍACA (BPM)" data={hrSeries.values} dates={hrSeries.dates} unit={hrSeries.unit || 'lpm'} color="#43e9ff" />
+          <TrendChart title="SUEÑO (HORAS)" data={sleepSeries.values} dates={sleepSeries.dates} unit={sleepSeries.unit || 'h'} color="#7fa8ff" loading={loading} />
+          <TrendChart title="FRECUENCIA CARDÍACA (BPM)" data={hrSeries.values} dates={hrSeries.dates} unit={hrSeries.unit || 'lpm'} color="#43e9ff" loading={loading} />
         </div>
 
         <Panel className="hm-record-card">

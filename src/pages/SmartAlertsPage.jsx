@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { getAnalysis, getCapabilities, listEntries } from '../api/client'
 import { METRIC_LABELS, formatDay, formatValue, formatWhen } from '../data/format'
 
@@ -235,7 +236,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
             <span className="stat-label">Informativo</span>
             <span className="stat-note">sin registros recientes</span>
           </div>
-          <strong className="stat-number">{loaded ? infoCount : '…'}</strong>
+          <strong className="stat-number">{loaded ? infoCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--warning">
@@ -243,7 +244,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
             <span className="stat-label">Cambio observado</span>
             <span className="stat-note">descriptivo, no clínico</span>
           </div>
-          <strong className="stat-number">{loaded ? preventiveCount : '…'}</strong>
+          <strong className="stat-number">{loaded ? preventiveCount : <Skeleton w={36} h={30} />}</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--attention">
@@ -270,10 +271,15 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
           <Panel className="alerts-feed-panel">
             <span className="section-title">ALERTAS</span>
             <div className="alerts-items-feed">
+              {!loaded && (
+                <SkeletonGroup label="Cargando alertas…">
+                  {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={52} radius="12px" />)}
+                </SkeletonGroup>
+              )}
               {loaded && alerts.length === 0 && (
                 <p className="chart-empty">Todos los indicadores tienen registros recientes y sin cambios en la ventana.</p>
               )}
-              {alerts.map((alert) => {
+              {loaded && alerts.map((alert) => {
                 const isActive = alert.id === currentAlert?.id
                 const isItemReviewed = reviewedIds.includes(alert.id)
                 return (
@@ -312,8 +318,17 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
         {/* Columna Derecha: Detalle de la Alerta Seleccionada */}
         <div className="alerts-detail-column">
           <Panel className="alert-detail-panel">
-            {!currentAlert && <p className="chart-empty">Cargando los registros…</p>}
-            {currentAlert && (
+            {!loaded && (
+              <SkeletonGroup label="Cargando detalle del aviso…">
+                <Skeleton w="30%" h={20} radius="12px" />
+                <Skeleton w="70%" h={26} />
+                <Skeleton w="100%" h={140} />
+                <Skeleton w="90%" h={12} />
+                <Skeleton w="75%" h={12} />
+              </SkeletonGroup>
+            )}
+            {loaded && !currentAlert && <p className="chart-empty">No hay avisos que mostrar.</p>}
+            {loaded && currentAlert && (
               <>
                 <div className="detail-header-row">
                   <div>

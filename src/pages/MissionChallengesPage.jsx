@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { getAnalysis, listEntries } from '../api/client'
 import { localDateKey } from '../data/format'
 
@@ -161,6 +162,16 @@ export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
         </div>
 
         <div className="weekly-metrics-grid">
+          {!weekly && (
+            <SkeletonGroup label="Cargando progreso semanal…" className="weekly-skeleton">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={{ display: 'grid', gap: 8 }}>
+                  <Skeleton w="70%" h={12} />
+                  <Skeleton w="100%" h={8} radius="6px" />
+                </div>
+              ))}
+            </SkeletonGroup>
+          )}
           {weeklyMetrics.map(({ label, value, target }) => (
             <div className="weekly-metric-item" key={label}>
               <div className="metric-header-row">
@@ -211,7 +222,7 @@ export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
           <div className="next-badge-info">
             <span className="next-badge-kicker">PRÓXIMA INSIGNIA</span>
             <strong>{selectedBadge.name}</strong>
-            <p>{weekly ? `Llevas ${weekly.nights} registros de sueño en los últimos 7 días` : 'Contando tus registros de sueño…'}</p>
+            {weekly ? <p>{`Llevas ${weekly.nights} registros de sueño en los últimos 7 días`}</p> : <Skeleton w="80%" h={12} />}
           </div>
 
           <button className="primary-pill-btn register-sleep-btn" onClick={handleRegisterSleep} type="button">

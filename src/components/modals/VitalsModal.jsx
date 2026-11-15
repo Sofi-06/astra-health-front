@@ -444,6 +444,9 @@ export default function VitalsModal({ open, onClose, onSaved }) {
     </>
   )
 
+  // El backend devuelve `recommendations` como texto o lista (solo si hay LLM configurado).
+  const recommendations = [proposal?.recommendations].flat().filter((text) => typeof text === 'string' && text.trim())
+
   const renderCandidateReview = () => {
     if (batchMeasurements) {
       return batchMeasurements.map((m, index) => (
@@ -562,6 +565,16 @@ export default function VitalsModal({ open, onClose, onSaved }) {
               )}
               <div><dt>Fecha y hora</dt><dd>{formatWhen(new Date(draft.measuredAt).toISOString())}</dd></div>
             </dl>
+
+            {recommendations.length > 0 && (
+              <div className="recommendations-box">
+                {recommendations.map((text) => <p key={text}>{text}</p>)}
+                <small>
+                  Sugerencia generada por un modelo de IA externo. No es consejo médico, no evalúa
+                  si tu cifra es normal y puede equivocarse. No se guarda con el registro.
+                </small>
+              </div>
+            )}
 
             {isFreeText && (
               <>

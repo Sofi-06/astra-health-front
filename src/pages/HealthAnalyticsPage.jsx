@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, getCapabilities, getHistory, listEntries } from '../api/client'
 import { formatDay, formatValue, localDateKey } from '../data/format'
 
@@ -41,7 +42,7 @@ function last7Days() {
   return days
 }
 
-function MetricChartCard({ meta, historyData, analysis }) {
+function MetricChartCard({ meta, historyData, analysis, loading = false }) {
   const series = [...(historyData?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
   const points = series?.points ?? []
   const values = points.map((p) => p.values[0])
@@ -93,14 +94,23 @@ function MetricChartCard({ meta, historyData, analysis }) {
         <div>
           <span className="card-kicker">{meta.kicker}</span>
           <div className="card-val-row">
-            <strong>{latest ? `${formatValue({ metric: meta.code, values: latest.values })} ${series?.unit || ''}` : '—'}</strong>
-            <span className={`card-comparison ${compClass}`}>{comparison}</span>
+            {loading ? <Skeleton w={110} h={26} /> : (
+              <>
+                <strong>{latest ? `${formatValue({ metric: meta.code, values: latest.values })} ${series?.unit || ''}` : '—'}</strong>
+                <span className={`card-comparison ${compClass}`}>{comparison}</span>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       <div className="metric-chart-canvas-wrap">
-        {values.length >= 2 ? (
+        {loading ? (
+          <SkeletonGroup label={`Cargando ${meta.kicker}…`}>
+            <Skeleton w="100%" h={80} />
+            <Skeleton w="60%" h={11} />
+          </SkeletonGroup>
+        ) : values.length >= 2 ? (
           <>
             <div className="axis-y-labels">
               {yLabels.map((v, i) => <span key={i}>{v}</span>)}
@@ -134,9 +144,13 @@ export default function HealthAnalyticsPage({ onNotify }) {
   const [data, setData] = useState({}) // code -> { history, analysis }
   const [heatmapHistories, setHeatmapHistories] = useState({})
   const [entries, setEntries] = useState([])
+  const [loadedDays, setLoadedDays] = useState(null) // rango cuyos gráficos ya se cargaron
+  const [heatmapLoaded, setHeatmapLoaded] = useState(false)
+  const [entriesLoaded, setEntriesLoaded] = useState(false)
   const [busyReport, setBusyReport] = useState(false)
 
   const days = TIME_FILTERS.find((f) => f.label === activeRange)?.days ?? 7
+  const chartsLoading = loadedDays !== days
 
   useEffect(() => {
     let cancelled = false
@@ -149,7 +163,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
         ])
         result[code] = { history, analysis }
       }))
-      if (!cancelled) setData(result)
+      if (!cancelled) { setData(result); setLoadedDays(days) }
     }
     load()
     return () => { cancelled = true }
@@ -160,9 +174,15 @@ export default function HealthAnalyticsPage({ onNotify }) {
     let cancelled = false
     const codes = [...new Set(HEATMAP_SYSTEMS.flatMap((s) => s.metrics))]
     Promise.all(codes.map((code) => getHistory(code, 7).catch(() => null))).then((histories) => {
-      if (!cancelled) setHeatmapHistories(Object.fromEntries(codes.map((code, i) => [code, histories[i]])))
+      if (!cancelled) {
+        setHeatmapHistories(Object.fromEntries(codes.map((code, i) => [code, histories[i]])))
+        setHeatmapLoaded(true)
+      }
     })
-    listEntries().then((list) => { if (!cancelled) setEntries(list.entries || []) }).catch(() => {})
+    listEntries()
+      .then((list) => { if (!cancelled) setEntries(list.entries || []) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setEntriesLoaded(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -252,6 +272,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
               meta={meta}
               historyData={data[meta.code]?.history}
               analysis={data[meta.code]?.analysis}
+              loading={chartsLoading}
             />
           ))}
         </div>
@@ -276,6 +297,7 @@ export default function HealthAnalyticsPage({ onNotify }) {
                   </span>
                   <div className="heatmap-blocks-row">
                     {heatmapDays.map((day) => {
+                      if (!heatmapLoaded) return <Skeleton key={day} w={22} h={22} radius="6px" />
                       const hasRecord = sys.metrics.some((code) => recordedDatesByMetric[code]?.has(day))
                       return <span key={day} className={`heatmap-cell ${hasRecord ? 'cell--stable' : 'cell--empty'}`} />
                     })}
@@ -329,15 +351,15 @@ export default function HealthAnalyticsPage({ onNotify }) {
             <div className="comparisons-list">
               <div className="comparison-row">
                 <span>Registros de hoy</span>
-                <span className="comp-tag tag--stable">{comparisons.today}</span>
+                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.today : <Skeleton w={24} h={14} />}</span>
               </div>
               <div className="comparison-row">
                 <span>Últimos 7 días</span>
-                <span className="comp-tag tag--stable">{comparisons.week}</span>
+                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.week : <Skeleton w={24} h={14} />}</span>
               </div>
               <div className="comparison-row">
                 <span>Toda la misión</span>
-                <span className="comp-tag tag--stable">{comparisons.total}</span>
+                <span className="comp-tag tag--stable">{entriesLoaded ? comparisons.total : <Skeleton w={24} h={14} />}</span>
               </div>
             </div>
           </Panel>

@@ -5,6 +5,7 @@ import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
 import { Activity, Bone, Brain, CircleDot, Heart, Plus, Radiation, Waves } from 'lucide-react'
 import * as THREE from 'three'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { listEntries, getHistory } from '../api/client'
 import { formatDay, formatValue, formatWhen } from '../data/format'
 
@@ -283,9 +284,13 @@ function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
 export default function BodyExplorerPage({ onNotify }) {
   const [selected, setSelected] = useState('Corazón')
   const [latest, setLatest] = useState({})
+  const [entriesLoaded, setEntriesLoaded] = useState(false)
+  const [loadedMetric, setLoadedMetric] = useState(null) // indicador cuyo historial ya se cargó
   const [detailPoints, setDetailPoints] = useState({ points: [], unit: '' })
   const systems = useMemo(() => buildSystems(latest), [latest])
   const detail = systems.find((system) => system.name === selected)
+  const primaryMetric = detail?.metrics?.[0]?.code
+  const detailLoading = !entriesLoaded || (primaryMetric && loadedMetric !== primaryMetric)
 
   useEffect(() => {
     let cancelled = false
@@ -298,7 +303,7 @@ export default function BodyExplorerPage({ onNotify }) {
         if (!byMetric[code] || entry.measured_at > byMetric[code].measured_at) byMetric[code] = entry
       }
       setLatest(byMetric)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => { if (!cancelled) setEntriesLoaded(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -314,6 +319,7 @@ export default function BodyExplorerPage({ onNotify }) {
       const series = [...(data?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
       setDetailPoints({ points: series?.points ?? [], unit: series?.unit || '' })
     }).catch(() => setDetailPoints({ points: [], unit: '' }))
+      .finally(() => { if (!cancelled) setLoadedMetric(primary) })
     return () => { cancelled = true }
   }, [detail?.metrics])
 
@@ -335,8 +341,14 @@ export default function BodyExplorerPage({ onNotify }) {
         <Panel className="body-detail-card">
           <span className="body-kicker">DETALLE</span>
           <h2>{detail.name}</h2>
-          <span className="body-status-chip">{detail.status}</span>
-          <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
+          {entriesLoaded ? <span className="body-status-chip">{detail.status}</span> : <Skeleton w={120} h={22} radius="14px" />}
+          {detailLoading ? (
+            <SkeletonGroup label="Cargando evolución del sistema…">
+              <Skeleton w="100%" h={100} />
+            </SkeletonGroup>
+          ) : (
+            <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
+          )}
           <h3>EN EL ESPACIO</h3><p>{detail.description}</p>
           <h3>QUÉ SE REGISTRA</h3>
           <ul>{detail.records.map((record) => <li key={record}>{record}</li>)}</ul>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import Skeleton, { SkeletonGroup } from '../components/ui/Skeleton'
 import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
 import { formatDay, formatWhen } from '../data/format'
 
@@ -103,16 +104,21 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
   const [analyses, setAnalyses] = useState({})
   const [studies, setStudies] = useState([])
   const [entryCount, setEntryCount] = useState(null)
+  const [analysesLoaded, setAnalysesLoaded] = useState(false)
+  const [studiesLoaded, setStudiesLoaded] = useState(false)
   const [busyExport, setBusyExport] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     Promise.all(NODES.map(({ code }) => getAnalysis(code, 7).catch(() => null))).then((results) => {
-      if (!cancelled) setAnalyses(Object.fromEntries(NODES.map(({ code }, i) => [code, results[i]])))
+      if (cancelled) return
+      setAnalyses(Object.fromEntries(NODES.map(({ code }, i) => [code, results[i]])))
+      setAnalysesLoaded(true)
     })
     listResearchStudies()
       .then((data) => { if (!cancelled) setStudies(data?.studies ?? []) })
       .catch(() => {})
+      .finally(() => { if (!cancelled) setStudiesLoaded(true) })
     listEntries()
       .then((data) => { if (!cancelled) setEntryCount(data?.count ?? 0) })
       .catch(() => {})
@@ -180,10 +186,12 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
             return (
               <div key={code} className={`pattern-satellite-node ${className}`}>
                 <span className="node-title">{title}</span>
-                <div className={`node-value ${change != null && change !== 0 ? arrowClass : ''}`}>
-                  {change != null && change !== 0 && (change > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
-                  <span>{value}</span>
-                </div>
+                {analysesLoaded ? (
+                  <div className={`node-value ${change != null && change !== 0 ? arrowClass : ''}`}>
+                    {change != null && change !== 0 && (change > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                    <span>{value}</span>
+                  </div>
+                ) : <Skeleton w={54} h={16} />}
               </div>
             )
           })}
@@ -201,7 +209,7 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
           </div>
           <div>
             <span>REGISTROS</span>
-            <strong>{entryCount == null ? '…' : entryCount}</strong>
+            {entryCount == null ? <Skeleton w={32} h={16} /> : <strong>{entryCount}</strong>}
           </div>
           <div>
             <span>ALMACENAMIENTO</span>
@@ -219,12 +227,25 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
         {/* Panel 1: SUEÑO (HORAS) con registros reales */}
         <Panel className="insights-chart-panel">
           <span className="section-title">SUEÑO (HORAS)</span>
-          <SleepCurve analysis={sleep} />
+          {analysesLoaded ? <SleepCurve analysis={sleep} /> : (
+            <SkeletonGroup label="Cargando curva de sueño…">
+              <Skeleton w="100%" h={140} />
+              <Skeleton w="60%" h={11} />
+            </SkeletonGroup>
+          )}
         </Panel>
 
         {/* Panel 2: ORIENTACIÓN con fuente y límites explícitos */}
         <Panel className="insights-actions-panel">
           <span className="section-title">ORIENTACIÓN Y LÍMITES</span>
+          {!analysesLoaded && (
+            <SkeletonGroup label="Cargando orientación…">
+              <Skeleton w="40%" h={14} />
+              <Skeleton w="100%" h={12} />
+              <Skeleton w="90%" h={12} />
+              <Skeleton w="95%" h={12} />
+            </SkeletonGroup>
+          )}
           {education && (
             <div className="education-box">
               <h3>Fuente general de la NASA</h3>
@@ -255,7 +276,12 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
         <Panel className="insights-hazards-panel">
           <span className="section-title">INVESTIGACIÓN NASA · OSDR</span>
           <div className="hazards-list">
-            {studies.length === 0 && <p className="chart-empty">No hay estudios en la copia local.</p>}
+            {!studiesLoaded && (
+              <SkeletonGroup label="Cargando estudios de NASA OSDR…">
+                {[0, 1, 2].map((i) => <Skeleton key={i} w="100%" h={44} radius="10px" />)}
+              </SkeletonGroup>
+            )}
+            {studiesLoaded && studies.length === 0 && <p className="chart-empty">No hay estudios en la copia local.</p>}
             {studies.map((study) => (
               <div className="hazard-row" key={study.accession}>
                 <div className="hazard-name">

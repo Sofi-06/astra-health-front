@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { BedDouble } from 'lucide-react'
 import Panel from '../ui/Panel'
+import Skeleton, { SkeletonGroup } from '../ui/Skeleton'
 import { loadSyntheticSleep } from '../../api/client'
 
-export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpenVitals }) {
+export default function SleepAnalysisPanel({ analysis, loading = false, onReload, onNotify, onOpenVitals }) {
   const [busy, setBusy] = useState(false)
 
   const loadExample = async () => {
@@ -40,7 +41,13 @@ export default function SleepAnalysisPanel({ analysis, onReload, onNotify, onOpe
       </div>
 
       <div className="sleep-panel-pro__content">
-        {stats ? (
+        {loading ? (
+          <SkeletonGroup label="Cargando análisis de sueño…">
+            <Skeleton w={96} h={96} radius="50%" />
+            <Skeleton w="70%" h={14} />
+            <Skeleton w="50%" h={12} />
+          </SkeletonGroup>
+        ) : stats ? (
           <>
             {/* Ring circular con valor real */}
             <div className="sleep-ring-wrap">
