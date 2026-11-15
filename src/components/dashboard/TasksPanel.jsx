@@ -1,16 +1,16 @@
-import { useState } from 'react'
 import { Activity, Check, Plus } from 'lucide-react'
 import Panel from '../ui/Panel'
 import { tasks } from '../../data/dashboardData'
+import { localDateKey } from '../../data/format'
 
-export default function TasksPanel({ onOpenVitals }) {
-  // Los dos primeros marcados por defecto como en la imagen
-  const [done, setDone] = useState([0, 1])
-
-  const toggle = (index) => {
-    setDone((current) =>
-      current.includes(index) ? current.filter((item) => item !== index) : [...current, index]
-    )
+export default function TasksPanel({ onOpenVitals, latest }) {
+  // Marcado solo con datos: el indicador tiene un registro confirmado de hoy.
+  const todayKey = localDateKey(new Date().toISOString())
+  const recordedToday = (metric) => {
+    const entry = latest?.[metric]
+    const measuredAt = entry?.measured_at || entry?.candidate?.measured_at
+    if (!measuredAt) return false
+    return localDateKey(measuredAt) === todayKey
   }
 
   return (
@@ -21,19 +21,20 @@ export default function TasksPanel({ onOpenVitals }) {
       </div>
 
       <div className="task-list-pro">
-        {tasks.map((task, index) => {
-          const isDone = done.includes(index)
+        {tasks.map((task) => {
+          const isDone = recordedToday(task.metric)
           return (
             <button
-              key={task}
+              key={task.label}
               className={`task-row-pro ${isDone ? 'is-done' : ''}`}
-              onClick={() => toggle(index)}
+              onClick={isDone ? undefined : onOpenVitals}
+              title={isDone ? 'Registrado hoy' : 'Abrir registro de datos'}
               type="button"
             >
               <span className={`task-checkbox-circle ${isDone ? 'checked' : ''}`}>
                 {isDone && <Check size={11} strokeWidth={3} />}
               </span>
-              <span className="task-row-text">{task}</span>
+              <span className="task-row-text">{task.label}</span>
             </button>
           )
         })}
