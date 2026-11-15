@@ -1,27 +1,146 @@
-import { useState } from 'react'
-import {
-  Activity,
-  AlertTriangle,
-  ArrowDown,
-  ArrowUp,
-  Brain,
-  Download,
-  Eye,
-  FileText,
-  Gauge,
-  Moon,
-  Radio,
-  Shield,
-  Smile,
-  Zap,
-} from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import { exportData, getAnalysis, listEntries, listResearchStudies } from '../api/client'
+import { formatDay, formatWhen } from '../data/format'
+
+// Nodos del resumen: solo indicadores con análisis real en el backend.
+const NODES = [
+  { code: 'sleep', title: 'SUEÑO', className: 'node--sleep', arrowClass: 'val--down' },
+  { code: 'heart_rate', title: 'PULSO', className: 'node--fatigue', arrowClass: 'val--up-warn' },
+  { code: 'blood_pressure', title: 'PRESIÓN', className: 'node--stress', arrowClass: 'val--up-warn' },
+  { code: 'oxygen_saturation', title: 'SATURACIÓN', className: 'node--activity', arrowClass: 'val--down-gold' },
+  { code: 'glucose', title: 'GLUCOSA', className: 'node--mood', arrowClass: 'val--down' },
+]
+
+const round1 = (n) => Math.round(n * 10) / 10
+
+function nodeData(code, analysis) {
+  if (!analysis) return { value: 's/r', change: null, unit: '' }
+  if (code === 'sleep') {
+    const stats = analysis.personal_calculation?.stats
+    if (!stats) return { value: 's/r', change: null, unit: 'h' }
+    return {
+      value: `${round1(stats.mean_hours)} h`,
+      change: stats.change_last_minus_first_hours,
+      unit: 'h',
+    }
+  }
+  const series = analysis.personal_calculation?.series?.[0]
+  if (!series?.stats) return { value: 's/r', change: null, unit: '' }
+  const mean = series.stats.mean
+  return {
+    value: code === 'blood_pressure' ? `${Math.round(mean[0])}/${Math.round(mean[1])} ${series.unit}` : `${round1(mean[0])} ${series.unit}`,
+    change: series.stats.change_last_minus_first?.[0] ?? null,
+    unit: series.unit,
+  }
+}
+
+function SleepCurve({ analysis }) {
+  const nights = analysis?.personal_calculation?.nights ?? []
+  const message = analysis?.personal_calculation?.message
+
+  if (!nights.length) {
+    return (
+      <>
+        <p className="chart-empty">Sin registros de sueño confirmados en la ventana. Registra tus horas para ver la curva.</p>
+        {message && <p className="sleep-trend-footnote">{message}</p>}
+      </>
+    )
+  }
+
+  const width = 320
+  const height = 100
+  const pad = 5
+  const values = nights.map((n) => n.hours)
+  let min = Math.min(...values)
+  let max = Math.max(...values)
+  if (min === max) { min -= 1; max += 1 }
+  const coords = values.map((v, i) => [
+    pad + (i / Math.max(1, values.length - 1)) * (width - pad * 2),
+    pad + (1 - (v - min) / (max - min)) * (height - pad * 2 - 12),
+  ])
+  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
+  const area = `${line} L ${coords.at(-1)[0]} ${height - 10} L ${coords[0][0]} ${height - 10} Z`
+  const last = coords.at(-1)
+
+  return (
+    <>
+      <div className="sleep-curve-container">
+        <div className="sleep-curve-y">
+          <span>{round1(max)}</span>
+          <span>{round1((max + min) / 2)}</span>
+          <span>{round1(min)}</span>
+        </div>
+        <div className="sleep-curve-svg-wrap">
+          <svg viewBox={`0 0 ${width} ${height}`} className="sleep-trend-svg" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="sleepCurveFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#31dcff" stopOpacity="0.35" />
+                <stop offset="100%" stopColor="#31dcff" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="10" x2={width} y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+            <line x1="0" y1="45" x2={width} y2="45" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+            <line x1="0" y1="80" x2={width} y2="80" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+            <path d={area} fill="url(#sleepCurveFill)" />
+            <path d={line} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx={last[0]} cy={last[1]} r="4.5" fill="#ffffff" stroke="#00b4f0" strokeWidth="2" />
+          </svg>
+          <div className="sleep-curve-x">
+            <span>{formatDay(nights[0].date)}</span>
+            <span>{formatDay(nights[Math.floor((nights.length - 1) / 2)].date)}</span>
+            <span>{formatDay(nights.at(-1).date)}</span>
+          </div>
+        </div>
+      </div>
+      {message && <p className="sleep-trend-footnote">{message}</p>}
+    </>
+  )
+}
 
 export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) {
-  const [selectedNode, setSelectedNode] = useState('pattern')
+  const [analyses, setAnalyses] = useState({})
+  const [studies, setStudies] = useState([])
+  const [entryCount, setEntryCount] = useState(null)
+  const [busyExport, setBusyExport] = useState(false)
 
-  const handleExport = () => {
-    onNotify?.('Generando informe médico espacial de ASTRA en PDF…')
+  useEffect(() => {
+    let cancelled = false
+    Promise.all(NODES.map(({ code }) => getAnalysis(code, 7).catch(() => null))).then((results) => {
+      if (!cancelled) setAnalyses(Object.fromEntries(NODES.map(({ code }, i) => [code, results[i]])))
+    })
+    listResearchStudies()
+      .then((data) => { if (!cancelled) setStudies(data?.studies ?? []) })
+      .catch(() => {})
+    listEntries()
+      .then((data) => { if (!cancelled) setEntryCount(data?.count ?? 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  const sleep = analyses.sleep
+  const education = sleep?.education
+  const cannotConclude = sleep?.cannot_conclude ?? []
+  const aiRecommendation = sleep?.ai_recommendation
+
+  const handleExport = async () => {
+    setBusyExport(true)
+    try {
+      const report = await exportData()
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `astra-health-export-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      URL.revokeObjectURL(url)
+      onNotify?.('Informe JSON descargado con tus registros reales.')
+    } catch (error) {
+      onNotify?.(error.message)
+    } finally {
+      setBusyExport(false)
+    }
   }
 
   return (
@@ -34,16 +153,15 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
         </div>
       </header>
 
-      {/* Tarjeta Superior: Red de Patrón Detectado */}
+      {/* Tarjeta Superior: Resumen de los últimos 7 días con datos reales */}
       <Panel className="insights-pattern-card">
         <span className="insights-kicker">
-          SPACE HEALTH INSIGHTS · PATRÓN DETECTADO EN LOS ÚLTIMOS 7 DÍAS
+          SPACE HEALTH INSIGHTS · TUS REGISTROS DE LOS ÚLTIMOS 7 DÍAS
         </span>
 
-        {/* Constelación del patrón */}
+        {/* Constelación del resumen */}
         <div className="pattern-constellation">
           <svg className="constellation-lines-svg" viewBox="0 0 700 240" preserveAspectRatio="none">
-            {/* Líneas conectadas desde el centro hacia cada nodo */}
             <line x1="350" y1="120" x2="270" y2="40" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
             <line x1="350" y1="120" x2="480" y2="40" stroke="rgba(255, 122, 142, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
             <line x1="350" y1="120" x2="520" y2="180" stroke="rgba(192, 132, 252, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
@@ -51,60 +169,28 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
             <line x1="350" y1="120" x2="210" y2="180" stroke="rgba(49, 220, 255, 0.45)" strokeWidth="1.5" strokeDasharray="4 3" />
           </svg>
 
-          {/* Nodo central: PATRÓN a revisar */}
+          {/* Nodo central */}
           <div className="pattern-center-node">
             <div className="center-node-pulse" />
-            <strong>PATRÓN</strong>
-            <small>a revisar</small>
+            <strong>RESUMEN</strong>
+            <small>últimos 7 días</small>
           </div>
 
-          {/* Nodo 1: SUEÑO */}
-          <div className="pattern-satellite-node node--sleep">
-            <span className="node-title">SUEÑO</span>
-            <div className="node-value val--down">
-              <ArrowDown size={12} />
-              <span>4.6 h</span>
-            </div>
-          </div>
-
-          {/* Nodo 2: FATIGA */}
-          <div className="pattern-satellite-node node--fatigue">
-            <span className="node-title">FATIGA</span>
-            <div className="node-value val--up-warn">
-              <ArrowUp size={12} />
-              <span>4/5</span>
-            </div>
-          </div>
-
-          {/* Nodo 3: ESTRÉS */}
-          <div className="pattern-satellite-node node--stress">
-            <span className="node-title">ESTRÉS</span>
-            <div className="node-value val--up-warn">
-              <ArrowUp size={12} />
-              <span>4/5</span>
-            </div>
-          </div>
-
-          {/* Nodo 4: ACTIVIDAD */}
-          <div className="pattern-satellite-node node--activity">
-            <span className="node-title">ACTIVIDAD</span>
-            <div className="node-value val--down-gold">
-              <ArrowDown size={12} />
-              <span>25 min</span>
-            </div>
-          </div>
-
-          {/* Nodo 5: ÁNIMO */}
-          <div className="pattern-satellite-node node--mood">
-            <span className="node-title">ÁNIMO</span>
-            <div className="node-value val--down">
-              <ArrowDown size={12} />
-              <span>2/5</span>
-            </div>
-          </div>
+          {NODES.map(({ code, title, className, arrowClass }) => {
+            const { value, change } = nodeData(code, analyses[code])
+            return (
+              <div key={code} className={`pattern-satellite-node ${className}`}>
+                <span className="node-title">{title}</span>
+                <div className={`node-value ${change != null && change !== 0 ? arrowClass : ''}`}>
+                  {change != null && change !== 0 && (change > 0 ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+                  <span>{value}</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
-        {/* Fila de metadatos de contexto de la misión */}
+        {/* Fila de metadatos: solo datos reales de la sesión o del prototipo */}
         <div className="insights-mission-meta-row">
           <div>
             <span>TIPO DE MISIÓN</span>
@@ -115,151 +201,89 @@ export default function SpaceHealthInsightsPage({ onNotify, sessionDay = 145 }) 
             <strong>{sessionDay}</strong>
           </div>
           <div>
-            <span>GRAVEDAD</span>
-            <strong>Microgravedad</strong>
+            <span>REGISTROS</span>
+            <strong>{entryCount == null ? '…' : entryCount}</strong>
           </div>
           <div>
-            <span>RADIACIÓN</span>
-            <strong>Dosímetro 0.52 mSv/d</strong>
+            <span>ALMACENAMIENTO</span>
+            <strong>SQLite local</strong>
           </div>
           <div>
-            <span>COMUNICACIÓN</span>
-            <strong>Enlace estable</strong>
+            <span>CANAL MÉDICO</span>
+            <strong>No conectado</strong>
           </div>
         </div>
       </Panel>
 
       {/* Fila Inferior: 3 Paneles */}
       <div className="insights-bottom-grid">
-        {/* Panel 1: SUEÑO (HORAS) */}
+        {/* Panel 1: SUEÑO (HORAS) con registros reales */}
         <Panel className="insights-chart-panel">
           <span className="section-title">SUEÑO (HORAS)</span>
-          <div className="sleep-curve-container">
-            <div className="sleep-curve-y">
-              <span>8.0</span>
-              <span>6.8</span>
-              <span>5.5</span>
-              <span>4.2</span>
-              <span>3.0</span>
-            </div>
-            <div className="sleep-curve-svg-wrap">
-              <svg viewBox="0 0 320 100" className="sleep-trend-svg" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="sleepCurveFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#31dcff" stopOpacity="0.35" />
-                    <stop offset="100%" stopColor="#31dcff" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-                {/* Líneas guía horizontales */}
-                <line x1="0" y1="10" x2="320" y2="10" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="0" y1="35" x2="320" y2="35" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="0" y1="60" x2="320" y2="60" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-                <line x1="0" y1="85" x2="320" y2="85" stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
-
-                {/* Área bajo la curva */}
-                <path
-                  d="M 5 22 Q 40 22, 60 32 T 140 48 T 220 62 T 315 78 L 315 100 L 5 100 Z"
-                  fill="url(#sleepCurveFill)"
-                />
-                {/* Línea principal con degradado */}
-                <path
-                  d="M 5 22 Q 40 22, 60 32 T 140 48 T 220 62 T 315 78"
-                  fill="none"
-                  stroke="#38bdf8"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-                <circle cx="315" cy="78" r="4.5" fill="#ffffff" stroke="#00b4f0" strokeWidth="2" />
-              </svg>
-
-              <div className="sleep-curve-x">
-                <span>D139</span>
-                <span>D141</span>
-                <span>D143</span>
-                <span>D145</span>
-              </div>
-            </div>
-          </div>
-          <p className="sleep-trend-footnote">
-            Los cambios coinciden en el tiempo y justifican una revisión del descanso, la carga de trabajo y el bienestar.
-          </p>
+          <SleepCurve analysis={sleep} />
         </Panel>
 
-        {/* Panel 2: ORIENTACIÓN PREVENTIVA */}
+        {/* Panel 2: ORIENTACIÓN con fuente y límites explícitos */}
         <Panel className="insights-actions-panel">
-          <span className="section-title">ORIENTACIÓN PREVENTIVA</span>
-          <h3>Qué recomendamos</h3>
-          <ul className="recommendations-list">
-            <li>
-              <span className="rec-bullet" />
-              <span>Revisar la rutina de descanso</span>
-            </li>
-            <li>
-              <span className="rec-bullet" />
-              <span>Registrar de nuevo la calidad del sueño</span>
-            </li>
-            <li>
-              <span className="rec-bullet" />
-              <span>Revisar carga de trabajo y actividad</span>
-            </li>
-            <li>
-              <span className="rec-bullet" />
-              <span>Pedir evaluación médica si persiste</span>
-            </li>
-          </ul>
+          <span className="section-title">ORIENTACIÓN Y LÍMITES</span>
+          {aiRecommendation && (
+            <div className="recommendations-box">
+              <p>{aiRecommendation}</p>
+              <small>Texto generado por el prototipo (IA o plantilla local). No es consejo médico validado.</small>
+            </div>
+          )}
+          {education && (
+            <div className="education-box">
+              <h3>Fuente general de la NASA</h3>
+              <p>{education.text}</p>
+              <small>{education.scope}</small>
+            </div>
+          )}
+          {cannotConclude.length > 0 && (
+            <>
+              <h3>El análisis no determina</h3>
+              <ul className="recommendations-list">
+                {cannotConclude.map((item) => (
+                  <li key={item}>
+                    <span className="rec-bullet" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
 
-          <button className="primary-pill-btn export-report-btn" onClick={handleExport} type="button">
-            <span>Exportar informe</span>
+          <button className="primary-pill-btn export-report-btn" onClick={handleExport} disabled={busyExport} type="button">
+            <span>{busyExport ? 'Generando…' : 'Exportar informe'}</span>
           </button>
         </Panel>
 
-        {/* Panel 3: PELIGROS DEL ENTORNO ESPACIAL */}
+        {/* Panel 3: INVESTIGACIÓN NASA OSDR real */}
         <Panel className="insights-hazards-panel">
-          <span className="section-title">PELIGROS DEL ENTORNO ESPACIAL</span>
+          <span className="section-title">INVESTIGACIÓN NASA · OSDR</span>
           <div className="hazards-list">
-            <div className="hazard-row">
-              <div className="hazard-name">
-                <span className="hazard-icon">☢</span>
-                <span>Radiación</span>
+            {studies.length === 0 && <p className="chart-empty">No hay estudios en la copia local.</p>}
+            {studies.map((study) => (
+              <div className="hazard-row" key={study.accession}>
+                <div className="hazard-name">
+                  <span className="study-title" title={study.title}>{study.title}</span>
+                  <small className="study-meta">
+                    Copia local del {study.retrieved_at ? formatDay(study.retrieved_at) : '—'}
+                    {typeof study.file_count_total === 'number' ? ` · ${study.file_count_total} archivos` : ''}
+                    {study.stale ? ' · desactualizada' : ''}
+                  </small>
+                </div>
+                {study.api_url ? (
+                  <a className="status-badge badge--stable study-link" href={study.api_url} target="_blank" rel="noreferrer">{study.accession}</a>
+                ) : (
+                  <span className="status-badge badge--stable">{study.accession}</span>
+                )}
               </div>
-              <span className="status-badge badge--stable">Estable</span>
-            </div>
-
-            <div className="hazard-row">
-              <div className="hazard-name">
-                <span className="hazard-icon">⭕</span>
-                <span>Aislamiento</span>
-              </div>
-              <span className="status-badge badge--followup">Seguimiento</span>
-            </div>
-
-            <div className="hazard-row">
-              <div className="hazard-name">
-                <span className="hazard-icon">↗</span>
-                <span>Distancia</span>
-              </div>
-              <span className="status-badge badge--stable">Estable</span>
-            </div>
-
-            <div className="hazard-row">
-              <div className="hazard-name">
-                <span className="hazard-icon">⬇</span>
-                <span>Gravedad</span>
-              </div>
-              <span className="status-badge badge--followup">Seguimiento</span>
-            </div>
-
-            <div className="hazard-row">
-              <div className="hazard-name">
-                <span className="hazard-icon">⏹</span>
-                <span>Entorno</span>
-              </div>
-              <span className="status-badge badge--stable">Estable</span>
-            </div>
+            ))}
           </div>
+          <p className="insights-scope-note">Investigación pública de la NASA, separada de tus registros personales. No es un protocolo clínico.</p>
         </Panel>
       </div>
     </div>
   )
 }
-
