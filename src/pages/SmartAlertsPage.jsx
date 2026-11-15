@@ -9,6 +9,12 @@ const round1 = (n) => Math.round(n * 10) / 10
 
 // Reglas técnicas y descriptivas sobre los registros reales. No clasifican
 // severidad médica ni explican causas: solo describen qué hay (o falta) en SQLite.
+
+// Etiquetas visibles: descriptivas, sin niveles clínicos (no hay clasificador).
+const LEVEL_LABELS = {
+  Info: 'Informativo',
+  Preventivo: 'Cambio observado',
+}
 function buildAlerts(entries, analyses) {
   const alerts = []
   const now = Date.now()
@@ -217,7 +223,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
       {/* Header específico de la página */}
       <header className="page-header-pro">
         <div>
-          <h1>Alertas preventivas</h1>
+          <h1>Avisos y cambios observados</h1>
           <p>SMART ALERTS · REGLAS VISIBLES SOBRE TUS REGISTROS</p>
         </div>
       </header>
@@ -234,8 +240,8 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
 
         <Panel className="alert-stat-card card--warning">
           <div className="stat-card-top">
-            <span className="stat-label">Preventivo</span>
-            <span className="stat-note">cambios en la ventana</span>
+            <span className="stat-label">Cambio observado</span>
+            <span className="stat-note">descriptivo, no clínico</span>
           </div>
           <strong className="stat-number">{loaded ? preventiveCount : '…'}</strong>
         </Panel>
@@ -245,7 +251,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
             <span className="stat-label">Atención</span>
             <span className="stat-note">sin clasificador clínico</span>
           </div>
-          <strong className="stat-number">0</strong>
+          <strong className="stat-number stat-number--na">No evaluado</strong>
         </Panel>
 
         <Panel className="alert-stat-card card--critical">
@@ -253,7 +259,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
             <span className="stat-label">Crítico</span>
             <span className="stat-note">sin clasificador clínico</span>
           </div>
-          <strong className="stat-number">0</strong>
+          <strong className="stat-number stat-number--na">No evaluado</strong>
         </Panel>
       </div>
 
@@ -283,7 +289,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                       <small>{alert.time}</small>
                     </div>
                     <span className={`alert-badge badge--${alert.level.toLowerCase()}`}>
-                      {isItemReviewed ? 'Revisada' : alert.level}
+                      {isItemReviewed ? 'Revisada' : (LEVEL_LABELS[alert.level] || alert.level)}
                     </span>
                   </button>
                 )
@@ -312,7 +318,7 @@ export default function SmartAlertsPage({ onNotify, onOpenVitals }) {
                 <div className="detail-header-row">
                   <div>
                     <span className={`alert-badge badge--${currentAlert.level.toLowerCase()}`}>
-                      {isReviewed ? 'Revisada' : currentAlert.level}
+                      {isReviewed ? 'Revisada' : (LEVEL_LABELS[currentAlert.level] || currentAlert.level)}
                     </span>
                     <h2>{currentAlert.detailTitle}</h2>
                     <p className="detail-meta">
