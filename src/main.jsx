@@ -13,6 +13,7 @@ import './styles/smart-alerts.css'
 import './styles/mission-challenges.css'
 import './styles/health-analytics.css'
 import './styles/wellness-guide.css'
+import './styles/astra-voice.css'
 import './styles/responsive.css'
 
 createRoot(document.getElementById('root')).render(
