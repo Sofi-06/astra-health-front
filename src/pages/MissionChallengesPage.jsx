@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Activity,
   Award,
@@ -16,6 +16,8 @@ import {
   Zap,
 } from 'lucide-react'
 import Panel from '../components/ui/Panel'
+import { getAnalysis, listEntries } from '../api/client'
+import { localDateKey } from '../data/format'
 
 const BADGES = [
   { id: 1, name: 'Primer contacto', icon: 'helmet', unlocked: true, color: 'gold', progress: 100 },
@@ -30,6 +32,32 @@ const BADGES = [
 
 export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
   const [selectedBadge, setSelectedBadge] = useState(BADGES[2])
+  const [weekly, setWeekly] = useState(null)
+
+  // Conteos reales de la semana calculados desde los registros confirmados.
+  useEffect(() => {
+    let cancelled = false
+    const weekAgo = Date.now() - 7 * 86400000
+    Promise.all([listEntries().catch(() => ({ entries: [] })), getAnalysis('sleep', 7).catch(() => null)])
+      .then(([list, sleep]) => {
+        if (cancelled) return
+        const week = (list.entries || []).filter((e) => new Date(e.measured_at).getTime() >= weekAgo)
+        const days = new Set(week.map((e) => localDateKey(e.measured_at))).size
+        const metrics = new Set(week.filter((e) => e.candidate?.kind === 'measurement').map((e) => e.candidate.metric)).size
+        const nights = sleep?.personal_calculation?.nights_recorded ?? 0
+        setWeekly({ days, metrics, nights, total: list.count ?? (list.entries || []).length })
+      })
+    return () => { cancelled = true }
+  }, [])
+
+  const weeklyMetrics = weekly
+    ? [
+        { label: 'Días con registros esta semana', value: weekly.days, target: 7 },
+        { label: 'Noches de sueño registradas', value: weekly.nights, target: 7 },
+        { label: 'Indicadores distintos registrados', value: weekly.metrics, target: 6 },
+        { label: 'Registros totales en la misión', value: weekly.total, target: Math.max(weekly.total, 1) },
+      ]
+    : []
 
   const handleRegisterSleep = () => {
     onOpenVitals?.()
@@ -133,49 +161,17 @@ export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
         </div>
 
         <div className="weekly-metrics-grid">
-          {/* Métrica 1 */}
-          <div className="weekly-metric-item">
-            <div className="metric-header-row">
-              <span>Evaluaciones emocionales</span>
-              <strong>3/5</strong>
+          {weeklyMetrics.map(({ label, value, target }) => (
+            <div className="weekly-metric-item" key={label}>
+              <div className="metric-header-row">
+                <span>{label}</span>
+                <strong>{value}/{target}</strong>
+              </div>
+              <div className="metric-track">
+                <div className="metric-bar-fill" style={{ width: `${Math.min(100, (value / target) * 100)}%` }} />
+              </div>
             </div>
-            <div className="metric-track">
-              <div className="metric-bar-fill" style={{ width: '60%' }} />
-            </div>
-          </div>
-
-          {/* Métrica 2 */}
-          <div className="weekly-metric-item">
-            <div className="metric-header-row">
-              <span>Sueño registrado</span>
-              <strong>4/5</strong>
-            </div>
-            <div className="metric-track">
-              <div className="metric-bar-fill" style={{ width: '80%' }} />
-            </div>
-          </div>
-
-          {/* Métrica 3 */}
-          <div className="weekly-metric-item">
-            <div className="metric-header-row">
-              <span>Ejercicio programado</span>
-              <strong>2/3</strong>
-            </div>
-            <div className="metric-track">
-              <div className="metric-bar-fill" style={{ width: '66%' }} />
-            </div>
-          </div>
-
-          {/* Métrica 4 */}
-          <div className="weekly-metric-item">
-            <div className="metric-header-row">
-              <span>Informe semanal</span>
-              <strong>0/1</strong>
-            </div>
-            <div className="metric-track">
-              <div className="metric-bar-fill" style={{ width: '0%' }} />
-            </div>
-          </div>
+          ))}
         </div>
       </Panel>
 
@@ -215,7 +211,7 @@ export default function MissionChallengesPage({ onNotify, onOpenVitals }) {
           <div className="next-badge-info">
             <span className="next-badge-kicker">PRÓXIMA INSIGNIA</span>
             <strong>{selectedBadge.name}</strong>
-            <p>Te faltan 2 registros de sueño programados</p>
+            <p>{weekly ? `Llevas ${weekly.nights} registros de sueño en los últimos 7 días` : 'Contando tus registros de sueño…'}</p>
           </div>
 
           <button className="primary-pill-btn register-sleep-btn" onClick={handleRegisterSleep} type="button">
