@@ -5,16 +5,37 @@ import { clone as cloneSkeleton } from 'three/addons/utils/SkeletonUtils.js'
 import { Activity, Bone, Brain, CircleDot, Heart, Plus, Radiation, Waves } from 'lucide-react'
 import * as THREE from 'three'
 import Panel from '../components/ui/Panel'
+import { listEntries, getHistory } from '../api/client'
+import { formatDay, formatValue, formatWhen } from '../data/format'
 
-const systems = [
-  { name: 'Cerebro', icon: Brain, status: 'Atención', description: 'El sueño y el aislamiento pueden afectar la concentración.', records: ['Calidad del sueño', 'Concentración'], action: 'Rutina cognitiva programada' },
-  { name: 'Corazón', icon: Heart, status: 'Seguimiento', description: 'La microgravedad cambia la forma en que el corazón bombea y se adapta.', records: ['Frecuencia cardíaca', 'Presión arterial'], action: 'Ejercicio cardiovascular programado' },
-  { name: 'Pulmones', icon: Waves, status: 'Estable', description: 'La capacidad respiratoria se monitorea durante toda la misión.', records: ['Saturación de oxígeno', 'Frecuencia respiratoria'], action: 'Respiración guiada diaria' },
-  { name: 'Huesos', icon: Bone, status: 'Preventivo', description: 'La microgravedad acelera la pérdida de densidad mineral ósea.', records: ['Densidad ósea', 'Carga de ejercicio'], action: 'Resistencia y suplementación' },
-  { name: 'Músculos', icon: Activity, status: 'Seguimiento', description: 'La masa muscular requiere estímulo constante en microgravedad.', records: ['Fuerza funcional', 'Tiempo de actividad'], action: 'Ejercicio de resistencia' },
-  { name: 'Digestivo', icon: CircleDot, status: 'Estable', description: 'La nutrición y digestión se controlan durante la misión.', records: ['Glucosa', 'Hidratación'], action: 'Plan nutricional de misión' },
-  { name: 'Inmunológico', icon: Plus, status: 'Preventivo', description: 'El estrés espacial puede modificar la respuesta inmunológica.', records: ['Temperatura', 'Marcadores inmunes'], action: 'Control médico periódico' },
+// Cada sistema muestra solo los indicadores que el backend registra de verdad.
+// Sin datos reales se dice "Sin registros"; no se simulan estados clínicos.
+const SYSTEM_DEFS = [
+  { name: 'Cerebro', icon: Brain, description: 'El sueño y el aislamiento pueden afectar la concentración.', metrics: [{ code: 'sleep', label: 'Sueño declarado' }], action: 'Rutina cognitiva programada' },
+  { name: 'Corazón', icon: Heart, description: 'La microgravedad cambia la forma en que el corazón bombea y se adapta.', metrics: [{ code: 'heart_rate', label: 'Frecuencia cardíaca' }, { code: 'blood_pressure', label: 'Presión arterial' }], action: 'Ejercicio cardiovascular programado' },
+  { name: 'Pulmones', icon: Waves, description: 'La capacidad respiratoria se monitorea durante toda la misión.', metrics: [{ code: 'oxygen_saturation', label: 'Saturación de oxígeno' }], action: 'Respiración guiada diaria' },
+  { name: 'Huesos', icon: Bone, description: 'La microgravedad acelera la pérdida de densidad mineral ósea.', metrics: [], action: 'Resistencia y suplementación' },
+  { name: 'Músculos', icon: Activity, description: 'La masa muscular requiere estímulo constante en microgravedad.', metrics: [], action: 'Ejercicio de resistencia' },
+  { name: 'Digestivo', icon: CircleDot, description: 'La nutrición y digestión se controlan durante la misión.', metrics: [{ code: 'glucose', label: 'Glucosa' }], action: 'Plan nutricional de misión' },
+  { name: 'Inmunológico', icon: Plus, description: 'El estrés espacial puede modificar la respuesta inmunológica.', metrics: [{ code: 'temperature', label: 'Temperatura' }], action: 'Control médico periódico' },
 ]
+
+function buildSystems(latest) {
+  return SYSTEM_DEFS.map((def) => {
+    const records = def.metrics.map(({ code, label }) => {
+      const entry = latest?.[code]
+      return entry
+        ? `${label}: ${formatValue(entry.candidate)} ${entry.candidate.unit} · ${formatWhen(entry.measured_at)}`
+        : `${label}: sin registros`
+    })
+    const hasData = def.metrics.some(({ code }) => latest?.[code])
+    return {
+      ...def,
+      status: def.metrics.length === 0 ? 'Sin indicador conectado' : hasData ? 'Con registros' : 'Sin registros',
+      records: records.length ? records : ['Este prototipo no registra un indicador de este sistema'],
+    }
+  })
+}
 
 const bodyHitZones = [
   { id: 'brain', system: 'Cerebro', color: '#b98cff', shape: 'sphere', position: [0, 5.55, 0.3], markerPosition: [0, 6.02, 0.68], scale: [0.48, 0.58, 0.48] },
@@ -197,7 +218,11 @@ function ExplorerModel({ selected, onSelect }) {
   )
 }
 
-function BodyModel({ selected, onSelect }) {
+function BodyModel({ selected, onSelect, latest }) {
+  const hr = latest?.heart_rate
+  const o2 = latest?.oxygen_saturation
+  const temp = latest?.temperature
+  const gluc = latest?.glucose
   return (
     <div className="body-model-stage" aria-label={`Modelo corporal interactivo. Zona seleccionada: ${selected}`}>
       <div className="body-orbit body-orbit--one" /><div className="body-orbit body-orbit--two" />
@@ -211,30 +236,86 @@ function BodyModel({ selected, onSelect }) {
           <OrbitControls target={[0, 2.35, 0.6]} enableZoom={false} enablePan={false} minPolarAngle={Math.PI / 2} maxPolarAngle={Math.PI / 2} />
         </Canvas>
       </Suspense>
-      <div className="body-callout body-callout--mood"><small>BIENESTAR</small><strong>Cansado</strong></div>
-      <div className="body-callout body-callout--heart"><small>FREC. CARDÍACA</small><strong>88 <em>bpm</em></strong></div>
-      <div className="body-callout body-callout--oxygen"><small>SATURACIÓN O₂</small><strong>97<em>%</em></strong></div>
-      <div className="body-callout body-callout--activity"><small>ACTIVIDAD</small><strong>25 <em>min</em></strong></div>
+      <div className="body-callout body-callout--mood"><small>TEMPERATURA</small><strong>{temp ? <>{formatValue(temp.candidate)} <em>{temp.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--heart"><small>FREC. CARDÍACA</small><strong>{hr ? <>{formatValue(hr.candidate)} <em>{hr.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--oxygen"><small>SATURACIÓN O₂</small><strong>{o2 ? <>{formatValue(o2.candidate)}<em>{o2.candidate.unit}</em></> : '—'}</strong></div>
+      <div className="body-callout body-callout--activity"><small>GLUCOSA</small><strong>{gluc ? <>{formatValue(gluc.candidate)} <em>{gluc.candidate.unit}</em></> : '—'}</strong></div>
     </div>
   )
 }
 
-function DetailTrend({ color = '#ff9d83' }) {
+function DetailTrend({ color = '#ff9d83', points = [], unit = '' }) {
+  if (points.length < 2) {
+    return <p className="chart-empty">Sin registros suficientes del indicador principal de este sistema para dibujar su evolución.</p>
+  }
+  const values = points.map((p) => p.values[0])
+  let min = Math.min(...values)
+  let max = Math.max(...values)
+  if (min === max) { min -= 1; max += 1 }
+  const left = 27
+  const right = 266
+  const top = 14
+  const bottom = 98
+  const coords = values.map((v, i) => [
+    left + (i / (values.length - 1)) * (right - left),
+    top + (1 - (v - min) / (max - min)) * (bottom - top - 20),
+  ])
+  const line = coords.map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ')
+  const area = `${line} L ${coords.at(-1)[0]} ${bottom} L ${coords[0][0]} ${bottom} Z`
+  const last = coords.at(-1)
+  const yLabels = [max, (max + min) / 2, min]
+  const xLabels = [0, Math.floor((points.length - 1) / 2), points.length - 1]
   return (
-    <svg className="body-detail-chart" viewBox="0 0 270 125" role="img" aria-label="Evolución del sistema">
+    <svg className="body-detail-chart" viewBox="0 0 270 125" role="img" aria-label={`Evolución real del sistema (${unit})`}>
       <defs><linearGradient id="bodyDetailFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".38" /><stop offset="1" stopColor={color} stopOpacity=".02" /></linearGradient></defs>
-      {[14, 42, 70, 98].map((y, index) => <g key={y}><line x1="27" x2="266" y1={y} y2={y} className="body-detail-grid" /><text x="1" y={y + 4} className="body-detail-label">{100 - index * 10}</text></g>)}
-      <path d="M27 79 L50 76 L72 71 L95 69 L117 66 L140 53 L163 50 L185 43 L207 41 L230 34 L266 29 L266 98 L27 98 Z" fill="url(#bodyDetailFill)" />
-      <path d="M27 79 L50 76 L72 71 L95 69 L117 66 L140 53 L163 50 L185 43 L207 41 L230 34 L266 29" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="266" cy="29" r="8" fill={color} opacity=".25" /><circle cx="266" cy="29" r="4" fill="#fff" stroke={color} strokeWidth="2" />
-      {['D139', 'D141', 'D143', 'D145'].map((label, index) => <text key={label} x={28 + index * 79} y="120" textAnchor="middle" className="body-detail-label">{label}</text>)}
+      {yLabels.map((tick, index) => {
+        const y = top + index * ((bottom - top) / 2)
+        return <g key={index}><line x1={left} x2={right} y1={y} y2={y} className="body-detail-grid" /><text x="1" y={y + 4} className="body-detail-label">{tick.toFixed(1)}</text></g>
+      })}
+      <path d={area} fill="url(#bodyDetailFill)" />
+      <path d={line} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={last[0]} cy={last[1]} r="8" fill={color} opacity=".25" /><circle cx={last[0]} cy={last[1]} r="4" fill="#fff" stroke={color} strokeWidth="2" />
+      {xLabels.map((i) => <text key={i} x={left + (i / Math.max(1, points.length - 1)) * (right - left)} y="120" textAnchor="middle" className="body-detail-label">{formatDay(points[i].t)}</text>)}
     </svg>
   )
 }
 
 export default function BodyExplorerPage({ onNotify }) {
   const [selected, setSelected] = useState('Corazón')
+  const [latest, setLatest] = useState({})
+  const [detailPoints, setDetailPoints] = useState({ points: [], unit: '' })
+  const systems = useMemo(() => buildSystems(latest), [latest])
   const detail = systems.find((system) => system.name === selected)
+
+  useEffect(() => {
+    let cancelled = false
+    listEntries().then((data) => {
+      if (cancelled) return
+      const byMetric = {}
+      for (const entry of data.entries || []) {
+        const code = entry.candidate?.metric
+        if (entry.candidate?.kind !== 'measurement' || !code) continue
+        if (!byMetric[code] || entry.measured_at > byMetric[code].measured_at) byMetric[code] = entry
+      }
+      setLatest(byMetric)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    const primary = detail?.metrics?.[0]?.code
+    if (!primary) {
+      setDetailPoints({ points: [], unit: '' })
+      return
+    }
+    let cancelled = false
+    getHistory(primary, 30).then((data) => {
+      if (cancelled) return
+      const series = [...(data?.series ?? [])].sort((a, b) => b.points.length - a.points.length)[0]
+      setDetailPoints({ points: series?.points ?? [], unit: series?.unit || '' })
+    }).catch(() => setDetailPoints({ points: [], unit: '' }))
+    return () => { cancelled = true }
+  }, [detail?.metrics])
 
   const chooseSystem = (name) => {
     setSelected(name)
@@ -249,13 +330,13 @@ export default function BodyExplorerPage({ onNotify }) {
           <nav>{systems.map(({ name, icon: Icon }) => <button key={name} className={selected === name ? 'is-active' : ''} onClick={() => chooseSystem(name)}><Icon size={20} strokeWidth={1.45} /><span>{name}</span></button>)}</nav>
         </Panel>
 
-        <BodyModel selected={selected} onSelect={chooseSystem} />
+        <BodyModel selected={selected} onSelect={chooseSystem} latest={latest} />
 
         <Panel className="body-detail-card">
           <span className="body-kicker">DETALLE</span>
           <h2>{detail.name}</h2>
           <span className="body-status-chip">{detail.status}</span>
-          <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} />
+          <DetailTrend color={selected === 'Corazón' ? '#ff9d83' : '#50e6ff'} points={detailPoints.points} unit={detailPoints.unit} />
           <h3>EN EL ESPACIO</h3><p>{detail.description}</p>
           <h3>QUÉ SE REGISTRA</h3>
           <ul>{detail.records.map((record) => <li key={record}>{record}</li>)}</ul>
