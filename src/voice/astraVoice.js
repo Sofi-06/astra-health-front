@@ -400,7 +400,8 @@ export function createAstraVoice({
           pending = null
           onSaved(saved.entries?.length || 1)
           const clock = when.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-          await say(`Listo, ya guardé ${summary}${spokenOrigin.length >= 2 ? `, medido con ${spokenOrigin}` : ''}${hasSpokenTime ? ` a las ${clock}` : ''}. Puedes seguir con más mediciones.`)
+          const skippedNote = data.skipped?.length ? ` No entendí: ${data.skipped.join(', ')}; dime esos valores otra vez si quieres guardarlos.` : ''
+          await say(`Listo, ya guardé ${summary}${spokenOrigin.length >= 2 ? `, medido con ${spokenOrigin}` : ''}${hasSpokenTime ? ` a las ${clock}` : ''}.${skippedNote} Puedes seguir con más mediciones.`)
           if (stopping) return
           listenTurn(STATUS.LISTENING, handleUtterance)
           return

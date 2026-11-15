@@ -1,5 +1,4 @@
 import { formatValue, localDateKey, METRIC_LABELS } from './format'
-import { jsPDF } from 'jspdf'
 
 const CHART_METRICS = [
   { code: 'heart_rate', color: [34, 211, 238] },
@@ -20,6 +19,15 @@ const METRIC_LABELS_EN = {
   sleep: 'Reported sleep',
   muscle_mass: 'Muscles',
 }
+const METRIC_EN = {
+  heart_rate: 'Heart rate', blood_pressure: 'Blood pressure', oxygen_saturation: 'Oxygen saturation',
+  temperature: 'Temperature', glucose: 'Glucose', sleep: 'Sleep', muscle_mass: 'Muscles',
+}
+const MOOD_EN = { Cansado: 'Tired', Tranquilo: 'Calm', Tenso: 'Tense', 'Con energía': 'Energetic', Nostálgico: 'Nostalgic' }
+const SCALES = [
+  ['stress', 'Estrés', 'Stress'], ['isolation', 'Aislamiento', 'Isolation'], ['concentration', 'Concentración', 'Concentration'],
+  ['energy', 'Energía', 'Energy'], ['sleep_difficulty', 'Dificultad para dormir', 'Trouble sleeping'],
+]
 
 const clean = (text) => Array.from(String(text ?? ''))
   .filter((ch) => { const c = ch.charCodeAt(0); return c === 10 || (c >= 32 && c <= 126) || (c >= 161 && c <= 255) })
@@ -51,7 +59,8 @@ function buildBins(range, now) {
   })
 }
 
-export async function downloadReportPdf({ entries, range, language = 'es', userName = '' }) {
+export async function downloadReportPdf({ entries, range, language = 'es', userName = '', checkIns = [] }) {
+  const { jsPDF } = await import('jspdf')
   const en = language === 'en'
   const tr = (es, enText) => clean(en ? enText : es)
   const now = Date.now()
@@ -157,6 +166,98 @@ export async function downloadReportPdf({ entries, range, language = 'es', userN
     })
   }
   paragraph(tr('Orientación general basada en reglas visibles; no es un diagnóstico.', 'General guidance based on visible rules; it is not a diagnosis.'), 7.8, [120, 120, 120])
+  // Resumen de lo observado: descripción calculada solo con los registros del periodo.
+  const num = (n) => { const v = String(Math.round(n * 10) / 10); return en ? v : v.replace('.', ',') }
+  const dayLabel = (key) => new Date(`${key}T12:00:00`).toLocaleDateString(en ? 'en-US' : 'es-CO', { day: '2-digit', month: '2-digit' })
+  const bullet = (text, color = [50, 50, 50]) => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...color)
+    const lines = doc.splitTextToSize(clean(text), CW - 5)
+    lines.forEach((line, i) => { ensure(5); if (i === 0) doc.text('-', M, y); doc.text(line, M + 4, y); y += 4.6 })
+    y += 0.8
+  }
+
+  heading(tr('Resumen de lo observado', 'What was observed'))
+  const recordedDays = new Set([...inPeriod.map((e) => localDateKey(e.measured_at))])
+  paragraph(range === 1
+    ? tr(`En las últimas 24 horas registraste ${measurements.length} lecturas y ${symptoms.length} síntomas o comentarios.`,
+      `In the last 24 hours you recorded ${measurements.length} readings and ${symptoms.length} symptoms or comments.`)
+    : tr(`En ${periodLabel.toLowerCase()} registraste ${measurements.length} lecturas y ${symptoms.length} síntomas o comentarios, en ${recordedDays.size} de ${range} días. Los días sin registro no se estiman.`,
+      `Over the ${periodLabel.toLowerCase()} you recorded ${measurements.length} readings and ${symptoms.length} symptoms or comments, on ${recordedDays.size} of ${range} days. Days without records are not estimated.`))
+  y += 1.5
+
+  const flaggedMetrics = []
+  const emptyMetrics = []
+  CHART_METRICS.forEach(({ code }) => {
+    const label = clean(en ? METRIC_EN[code] : METRIC_LABELS[code] || code)
+    const rows = measurements.filter((e) => e.candidate.metric === code)
+      .sort((a, b) => new Date(a.measured_at) - new Date(b.measured_at))
+    if (rows.length === 0) { emptyMetrics.push(label); return }
+    const unit = [...rows.reduce((m, e) => m.set(e.candidate.unit, (m.get(e.candidate.unit) || 0) + 1), new Map())].sort((a, b) => b[1] - a[1])[0][0]
+    const same = rows.filter((e) => e.candidate.unit === unit)
+    const first = same.map((e) => Number(e.candidate.values[0])).filter(Number.isFinite)
+    if (!first.length) return
+    const mean = first.reduce((a, b) => a + b, 0) / first.length
+    let main = `${num(mean)} ${clean(unit)}`
+    if (code === 'blood_pressure') {
+      const dia = same.map((e) => Number(e.candidate.values[1])).filter(Number.isFinite)
+      main = `${num(mean)}/${num(dia.reduce((a, b) => a + b, 0) / Math.max(1, dia.length))} ${clean(unit)}`
+    }
+    let text = tr(`${label}: ${same.length} lecturas, promedio ${main} (mínimo ${num(Math.min(...first))}, máximo ${num(Math.max(...first))}).`,
+      `${label}: ${same.length} readings, average ${main} (minimum ${num(Math.min(...first))}, maximum ${num(Math.max(...first))}).`)
+    if (first.length >= 3) {
+      const change = first.at(-1) - first[0]
+      const steady = Math.abs(change) <= Math.abs(mean) * 0.01
+      text += steady
+        ? tr(' Entre la primera y la última lectura se mantuvo sin cambios relevantes.', ' Between the first and last reading it stayed essentially unchanged.')
+        : change > 0
+          ? tr(` Entre la primera y la última lectura subió ${num(change)} ${clean(unit)}.`, ` Between the first and last reading it rose ${num(change)} ${clean(unit)}.`)
+          : tr(` Entre la primera y la última lectura bajó ${num(Math.abs(change))} ${clean(unit)}.`, ` Between the first and last reading it fell ${num(Math.abs(change))} ${clean(unit)}.`)
+    } else {
+      text += tr(' Con menos de 3 lecturas no se describe un cambio.', ' With fewer than 3 readings no change is described.')
+    }
+    const outOfRange = same.filter((e) => e.recommendation?.out_of_range)
+    if (outOfRange.length) {
+      flaggedMetrics.push(label)
+      const last = outOfRange.at(-1).recommendation
+      text += tr(` ${outOfRange.length} de ${same.length} lecturas quedaron fuera del rango de referencia (última: ${last.reason || 'fuera de rango'}).`,
+        ` ${outOfRange.length} of ${same.length} readings were outside the reference range (latest: ${last.reason_en || last.reason || 'out of range'}).`)
+    }
+    bullet(text, outOfRange.length ? [190, 80, 20] : [50, 50, 50])
+  })
+
+  if (symptoms.length) {
+    const perDay = new Map()
+    symptoms.forEach((e) => { const k = localDateKey(e.measured_at); perDay.set(k, (perDay.get(k) || 0) + 1) })
+    const [topDay, topCount] = [...perDay.entries()].sort((a, b) => b[1] - a[1])[0]
+    const latest = clean(symptoms[0].candidate.original_text).slice(0, 110)
+    bullet(tr(`Síntomas o comentarios: ${symptoms.length} en ${perDay.size} día(s). El día con más fue el ${dayLabel(topDay)} (${topCount}). El más reciente: "${latest}".`,
+      `Symptoms or comments: ${symptoms.length} on ${perDay.size} day(s). The busiest day was ${dayLabel(topDay)} (${topCount}). Most recent: "${latest}".`))
+  } else {
+    bullet(tr('No declaraste síntomas en este periodo.', 'You did not report any symptoms in this period.'))
+  }
+
+  const startKey = localDateKey(new Date(start).toISOString())
+  const mind = checkIns.filter((item) => item.date >= startKey)
+  if (mind.length) {
+    const avg = (key) => {
+      const v = mind.map((item) => Number(item[key])).filter((n) => Number.isFinite(n) && n >= 1)
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
+    }
+    const words = mind.reduce((m, item) => m.set(item.mood_word, (m.get(item.mood_word) || 0) + 1), new Map())
+    const topWord = [...words.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    const low = [...mind].sort((a, b) => a.mood_score - b.mood_score)[0]
+    const scaleText = SCALES.map(([key, es, enName]) => { const v = avg(key); return v == null ? null : `${en ? enName : es} ${num(v)}` }).filter(Boolean).join(', ')
+    bullet(tr(`Bienestar emocional: ${mind.length} check-in(s), ánimo promedio ${num(avg('mood_score'))} de 5; la palabra más frecuente fue "${topWord}". Día con ánimo más bajo: ${dayLabel(low.date)} (${low.mood_score}/5).${scaleText ? ` Escalas promedio (1 a 5): ${scaleText}.` : ''}`,
+      `Emotional wellbeing: ${mind.length} check-in(s), average mood ${num(avg('mood_score'))} out of 5; the most frequent word was "${MOOD_EN[topWord] || topWord}". Lowest-mood day: ${dayLabel(low.date)} (${low.mood_score}/5).${scaleText ? ` Average scales (1 to 5): ${scaleText}.` : ''}`))
+  } else {
+    bullet(tr('Sin check-ins de bienestar emocional en este periodo.', 'No emotional wellbeing check-ins in this period.'))
+  }
+
+  if (emptyMetrics.length) bullet(tr(`Sin registros en el periodo: ${emptyMetrics.join(', ')}.`, `No records in the period: ${emptyMetrics.join(', ')}.`), [120, 120, 120])
+  bullet(flaggedMetrics.length
+    ? tr(`Para revisar con atención: ${flaggedMetrics.join(', ')} tuvieron lecturas fuera del rango de referencia.`, `To review carefully: ${flaggedMetrics.join(', ')} had readings outside the reference range.`)
+    : tr('Ninguna lectura del periodo quedó fuera del rango de referencia.', 'No reading in the period was outside the reference range.'), flaggedMetrics.length ? [190, 80, 20] : [30, 120, 70])
+  paragraph(tr('Descripción automática basada solo en tus registros; no es un diagnóstico ni una evaluación médica.', 'Automatic description based only on your records; it is not a diagnosis or medical evaluation.'), 8, [120, 120, 120])
   y += 4
 
   // Historial de síntomas: gráfica de barras + listado
